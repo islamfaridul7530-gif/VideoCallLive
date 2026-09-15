@@ -28,7 +28,7 @@ jobs:
 
       - name: Extract V2 project
         run: |
-          unzip -q VideoCallLiveV2.zip -d buildproject
+          unzip -q VideoCallLiveV2_Firebase.zip -d buildproject
           ls -la buildproject
 
       - name: Build APK
