@@ -27,17 +27,17 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract V1 project
+      - name: Extract V2 project
         run: |
-          unzip -q VideoCallLiveV1.zip -d buildproject
+          unzip -q VideoCallLiveV2.zip -d buildproject
           ls -la buildproject
 
       - name: Build APK
-        working-directory: buildproject/VideoCallLiveV1
+        working-directory: buildproject/VideoCallLiveV2
         run: gradle :app:assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V1-APK
-          path: buildproject/VideoCallLiveV1/app/build/outputs/apk/debug/app-debug.apk
+          name: VideoCallLive-V2-APK
+          path: buildproject/VideoCallLiveV2/app/build/outputs/apk/debug/app-debug.apk
