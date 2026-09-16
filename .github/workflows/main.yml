@@ -32,7 +32,7 @@ jobs:
                     cp google-services.json buildproject/VideoCallLiveV3_Diagnostic/app/google-services.json
 
       - name: Build APK
-        working-directory: buildproject/VideoCallLiveV3
+        working-directory: buildproject/VideoCallLiveV3_Diagnostic
         run: gradle :app:assembleDebug
       - name: Show SHA1
         working-directory: buildproject/VideoCallLiveV3
