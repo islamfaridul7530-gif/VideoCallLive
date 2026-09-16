@@ -29,7 +29,7 @@ jobs:
       - name: Extract V3 project
         run: |
           unzip -q VideoCallLiveV3_Diagnostic.zip -d buildproject
-                    cp google-services.json buildproject/VideoCallLiveV3/app/google-services.json
+                    cp google-services.json buildproject/VideoCallLiveV3_Diagnostic/app/google-services.json
 
       - name: Build APK
         working-directory: buildproject/VideoCallLiveV3
