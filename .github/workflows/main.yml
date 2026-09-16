@@ -35,7 +35,7 @@ jobs:
         working-directory: buildproject/VideoCallLiveV3_Diagnostic
         run: gradle :app:assembleDebug
       - name: Show SHA1
-        working-directory: buildproject/VideoCallLiveV3
+        working-directory: buildproject/VideoCallLiveV3_Diagnostic
         run: gradle signingReport
       - name: Upload APK
         uses: actions/upload-artifact@v4
