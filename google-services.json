@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "747760036312",
+    "project_id": "videocalllive-bcd7c",
+    "storage_bucket": "videocalllive-bcd7c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:747760036312:android:9259d864fe11b119c92aad",
+        "android_client_info": {
+          "package_name": "com.videocalllive.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "747760036312-2p51i6a53iodqcfa3ogu1iphjv0i12g4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD5rgYsy_DpHhVgwJsdUnzUWQa0gcx3UBg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "747760036312-2p51i6a53iodqcfa3ogu1iphjv0i12g4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
