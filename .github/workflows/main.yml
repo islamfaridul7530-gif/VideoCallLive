@@ -41,4 +41,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: VideoCallLive-V3-APK
-                          path: buildproject/VideoCallLiveV3_Diagnostic/app/build/outputs/apk/debug/app-debug.apk
+                    path: buildproject/VideoCallLiveV3_Diagnostic/app/build/outputs/apk/debug/app-debug.apk
