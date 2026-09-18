@@ -26,7 +26,7 @@ jobs:
 
       - name: Extract V8 project
         run: |
-          unzip -q VideoCallLiveV8.zip -d buildproject
+          unzip -q VideoCallLiveV8_SESSION_CREATOR.zip -d buildproject
           cp google-services.json buildproject/VideoCallLiveV8/app/google-services.json
           ls -la buildproject/VideoCallLiveV8
 
