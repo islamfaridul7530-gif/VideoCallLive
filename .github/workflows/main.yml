@@ -1,4 +1,4 @@
-name: Build Video Call Live V7 APK
+name: Build Video Call Live V8 APK
 
 on:
   workflow_dispatch:
@@ -24,22 +24,22 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract V7 project
+      - name: Extract V8 project
         run: |
-          unzip -q VideoCallLiveV7_CORE_FORCE_FIX.zip -d buildproject
-          cp google-services.json buildproject/VideoCallLiveV7_CORE_FORCE_FIX/app/google-services.json
-          ls -la buildproject/VideoCallLiveV7_CORE_FORCE_FIX
+          unzip -q VideoCallLiveV8.zip -d buildproject
+          cp google-services.json buildproject/VideoCallLiveV8/app/google-services.json
+          ls -la buildproject/VideoCallLiveV8
 
-      - name: Build V7 APK
-        working-directory: buildproject/VideoCallLiveV7_CORE_FORCE_FIX
+      - name: Build V8 APK
+        working-directory: buildproject/VideoCallLiveV8
         run: gradle :app:assembleDebug
 
       - name: Show SHA1
-        working-directory: buildproject/VideoCallLiveV7_CORE_FORCE_FIX
+        working-directory: buildproject/VideoCallLiveV8
         run: gradle signingReport
 
-      - name: Upload V7 APK
+      - name: Upload V8 APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V7-APK
-          path: buildproject/VideoCallLiveV7_CORE_FORCE_FIX/app/build/outputs/apk/debug/app-debug.apk
+          name: VideoCallLive-V8-APK
+          path: buildproject/VideoCallLiveV8/app/build/outputs/apk/debug/app-debug.apk
