@@ -1,4 +1,4 @@
-name: Check Video Call Live V8 ZIP
+name: Build Video Call Live V8 APK
 
 on:
   workflow_dispatch:
@@ -6,19 +6,40 @@ on:
     branches: [ "main" ]
 
 jobs:
-  check:
+  build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check V8 ZIP contents
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Extract V8 project
         run: |
-          echo "===== V8 ZIP CONTENTS ====="
-          unzip -l VideoCallLiveV8_SESSION_CREATOR.zip
-          echo "===== EXTRACTING ====="
-          mkdir -p buildproject
           unzip -q VideoCallLiveV8_SESSION_CREATOR.zip -d buildproject
-          echo "===== FOLDERS AFTER EXTRACT ====="
-          find buildproject -maxdepth 3 -type d -print
+          cp google-services.json buildproject/VideoCallLiveV8_SESSION_CREATOR/app/google-services.json
+          ls -la buildproject/VideoCallLiveV8_SESSION_CREATOR
+
+      - name: Build V8 APK
+        working-directory: buildproject/VideoCallLiveV8_SESSION_CREATOR
+        run: gradle :app:assembleDebug
+
+      - name: Show SHA1
+        working-directory: buildproject/VideoCallLiveV8_SESSION_CREATOR
+        run: gradle signingReport
+
+      - name: Upload V8 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoCallLive-V8-APK
+          path: buildproject/VideoCallLiveV8_SESSION_CREATOR/app/build/outputs/apk/debug/app-debug.apk
