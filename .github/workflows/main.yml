@@ -1,4 +1,4 @@
-name: Build Video Call Live V9 APK
+name: Build Video Call Live V10 APK
 
 on:
   workflow_dispatch:
@@ -24,22 +24,22 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract V9 project
+      - name: Extract V10 project
         run: |
-          unzip -q VideoCallLiveV9_FULL_UI.zip -d buildproject
-          cp google-services.json buildproject/VideoCallLiveV9_FULL_UI/app/google-services.json
-          ls -la buildproject/VideoCallLiveV9_FULL_UI
+          unzip -q VideoCallLiveV10_POLISHED_UI.zip -d buildproject
+          cp google-services.json buildproject/VideoCallLiveV10_POLISHED_UI/app/google-services.json
+          ls -la buildproject/VideoCallLiveV10_POLISHED_UI
 
-      - name: Build V9 APK
-        working-directory: buildproject/VideoCallLiveV9_FULL_UI
+      - name: Build V10 APK
+        working-directory: buildproject/VideoCallLiveV10_POLISHED_UI
         run: gradle :app:assembleDebug
 
       - name: Show SHA1
-        working-directory: buildproject/VideoCallLiveV9_FULL_UI
+        working-directory: buildproject/VideoCallLiveV10_POLISHED_UI
         run: gradle signingReport
 
-      - name: Upload V9 APK
+      - name: Upload V10 APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V9-APK
-          path: buildproject/VideoCallLiveV9_FULL_UI/app/build/outputs/apk/debug/app-debug.apk
+          name: VideoCallLive-V10-APK
+          path: buildproject/VideoCallLiveV10_POLISHED_UI/app/build/outputs/apk/debug/app-debug.apk
