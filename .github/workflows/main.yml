@@ -1,4 +1,4 @@
-name: Build Video Call Live V14 APK
+name: Build Video Call Live V15 APK
 
 on:
   workflow_dispatch:
@@ -24,22 +24,22 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract V14 project
+      - name: Extract V15 project
         run: |
-          unzip -q VideoCallLiveV14_UI_PHOTO_FIX.zip -d buildproject
-          cp google-services.json buildproject/VideoCallLiveV14_UI_PHOTO_FIX/app/google-services.json
-          ls -la buildproject/VideoCallLiveV14_UI_PHOTO_FIX
+          unzip -q VideoCallLiveV15_PROFILE_SCROLL_BACK.zip -d buildproject
+          cp google-services.json buildproject/VideoCallLiveV15_PROFILE_SCROLL_BACK/app/google-services.json
+          ls -la buildproject/VideoCallLiveV15_PROFILE_SCROLL_BACK
 
-      - name: Build V14 APK
-        working-directory: buildproject/VideoCallLiveV14_UI_PHOTO_FIX
+      - name: Build V15 APK
+        working-directory: buildproject/VideoCallLiveV15_PROFILE_SCROLL_BACK
         run: gradle :app:assembleDebug
 
       - name: Show SHA1
-        working-directory: buildproject/VideoCallLiveV14_UI_PHOTO_FIX
+        working-directory: buildproject/VideoCallLiveV15_PROFILE_SCROLL_BACK
         run: gradle signingReport
 
-      - name: Upload V14 APK
+      - name: Upload V15 APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V14-APK
-          path: buildproject/VideoCallLiveV14_UI_PHOTO_FIX/app/build/outputs/apk/debug/app-debug.apk
+          name: VideoCallLive-V15-APK
+          path: buildproject/VideoCallLiveV15_PROFILE_SCROLL_BACK/app/build/outputs/apk/debug/app-debug.apk
