@@ -1,4 +1,4 @@
-name: Build Video Call Live V13 APK
+name: Build Video Call Live V14 APK
 
 on:
   workflow_dispatch:
@@ -24,22 +24,22 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract V13 project
+      - name: Extract V14 project
         run: |
-          unzip -q VideoCallLiveV13_PROFILE_FUNCTIONS.zip -d buildproject
-          cp google-services.json buildproject/VideoCallLiveV13_PROFILE_FUNCTIONS/app/google-services.json
-          ls -la buildproject/VideoCallLiveV13_PROFILE_FUNCTIONS
+          unzip -q VideoCallLiveV14_UI_PHOTO_FIX.zip -d buildproject
+          cp google-services.json buildproject/VideoCallLiveV14_UI_PHOTO_FIX/app/google-services.json
+          ls -la buildproject/VideoCallLiveV14_UI_PHOTO_FIX
 
-      - name: Build V13 APK
-        working-directory: buildproject/VideoCallLiveV13_PROFILE_FUNCTIONS
+      - name: Build V14 APK
+        working-directory: buildproject/VideoCallLiveV14_UI_PHOTO_FIX
         run: gradle :app:assembleDebug
 
       - name: Show SHA1
-        working-directory: buildproject/VideoCallLiveV13_PROFILE_FUNCTIONS
+        working-directory: buildproject/VideoCallLiveV14_UI_PHOTO_FIX
         run: gradle signingReport
 
-      - name: Upload V13 APK
+      - name: Upload V14 APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V13-APK
-          path: buildproject/VideoCallLiveV13_PROFILE_FUNCTIONS/app/build/outputs/apk/debug/app-debug.apk
+          name: VideoCallLive-V14-APK
+          path: buildproject/VideoCallLiveV14_UI_PHOTO_FIX/app/build/outputs/apk/debug/app-debug.apk
