@@ -1,4 +1,4 @@
-name: Build Video Call Live V17 APK
+name: Build Video Call Live V18 APK
 
 on:
   workflow_dispatch:
@@ -24,22 +24,22 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract V17 project
+      - name: Extract V18 project
         run: |
-          unzip -q VideoCallLiveV17_REAL_PROFILE_FOUNDATION.zip -d buildproject
-          cp google-services.json buildproject/VideoCallLiveV17_REAL_PROFILE_FOUNDATION/app/google-services.json
-          ls -la buildproject/VideoCallLiveV17_REAL_PROFILE_FOUNDATION
+          unzip -q VideoCallLiveV18_REAL_BANNER_TRIAL_FIX.zip -d buildproject
+          cp google-services.json buildproject/VideoCallLiveV18_REAL_BANNER_TRIAL_FIX/app/google-services.json
+          ls -la buildproject/VideoCallLiveV18_REAL_BANNER_TRIAL_FIX
 
-      - name: Build V17 APK
-        working-directory: buildproject/VideoCallLiveV17_REAL_PROFILE_FOUNDATION
+      - name: Build V18 APK
+        working-directory: buildproject/VideoCallLiveV18_REAL_BANNER_TRIAL_FIX
         run: gradle :app:assembleDebug
 
       - name: Show SHA1
-        working-directory: buildproject/VideoCallLiveV17_REAL_PROFILE_FOUNDATION
+        working-directory: buildproject/VideoCallLiveV18_REAL_BANNER_TRIAL_FIX
         run: gradle signingReport
 
-      - name: Upload V17 APK
+      - name: Upload V18 APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V17-APK
-          path: buildproject/VideoCallLiveV17_REAL_PROFILE_FOUNDATION/app/build/outputs/apk/debug/app-debug.apk
+          name: VideoCallLive-V18-APK
+          path: buildproject/VideoCallLiveV18_REAL_BANNER_TRIAL_FIX/app/build/outputs/apk/debug/app-debug.apk
