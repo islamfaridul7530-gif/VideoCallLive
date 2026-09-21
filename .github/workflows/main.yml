@@ -1,4 +1,4 @@
-name: Build Video Call Live V16 APK
+name: Build Video Call Live V17 APK
 
 on:
   workflow_dispatch:
@@ -24,22 +24,22 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract V16 project
+      - name: Extract V17 project
         run: |
-          unzip -q VideoCallLiveV16_LOCAL_FEATURES.zip -d buildproject
-          cp google-services.json buildproject/VideoCallLiveV16_LOCAL_FEATURES/app/google-services.json
-          ls -la buildproject/VideoCallLiveV16_LOCAL_FEATURES
+          unzip -q VideoCallLiveV17_REAL_PROFILE_FOUNDATION.zip -d buildproject
+          cp google-services.json buildproject/VideoCallLiveV17_REAL_PROFILE_FOUNDATION/app/google-services.json
+          ls -la buildproject/VideoCallLiveV17_REAL_PROFILE_FOUNDATION
 
-      - name: Build V16 APK
-        working-directory: buildproject/VideoCallLiveV16_LOCAL_FEATURES
+      - name: Build V17 APK
+        working-directory: buildproject/VideoCallLiveV17_REAL_PROFILE_FOUNDATION
         run: gradle :app:assembleDebug
 
       - name: Show SHA1
-        working-directory: buildproject/VideoCallLiveV16_LOCAL_FEATURES
+        working-directory: buildproject/VideoCallLiveV17_REAL_PROFILE_FOUNDATION
         run: gradle signingReport
 
-      - name: Upload V16 APK
+      - name: Upload V17 APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V16-APK
-          path: buildproject/VideoCallLiveV16_LOCAL_FEATURES/app/build/outputs/apk/debug/app-debug.apk
+          name: VideoCallLive-V17-APK
+          path: buildproject/VideoCallLiveV17_REAL_PROFILE_FOUNDATION/app/build/outputs/apk/debug/app-debug.apk
