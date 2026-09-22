@@ -1,45 +1,48 @@
-name: Build Video Call Live V19 APK
+name: Build Video Call Live V20 APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
+    paths:
+      - 'VideoCallLiveV20_REAL_VIDEO_CALL.zip'
+      - '.github/workflows/main.yml'
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
+      - name: Extract V20 project
+        run: |
+          rm -rf buildproject
+          mkdir buildproject
+          unzip -q VideoCallLiveV20_REAL_VIDEO_CALL.zip -d buildproject
+          find buildproject -maxdepth 3 -type f | head -50
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
 
-      - name: Extract V19 project
-        run: |
-          unzip -q VideoCallLiveV19_CALLING_SAFETY_UPGRADE.zip -d buildproject
-          cp google-services.json buildproject/VideoCallLiveV19_CALLING_SAFETY_UPGRADE/app/google-services.json
-          ls -la buildproject/VideoCallLiveV19_CALLING_SAFETY_UPGRADE
-
-      - name: Build V19 APK
-        working-directory: buildproject/VideoCallLiveV19_CALLING_SAFETY_UPGRADE
-        run: gradle :app:assembleDebug
+      - name: Build V20 APK
+        working-directory: buildproject/VideoCallLiveV20_REAL_VIDEO_CALL
+        run: gradle assembleDebug --stacktrace
 
       - name: Show SHA1
-        working-directory: buildproject/VideoCallLiveV19_CALLING_SAFETY_UPGRADE
+        working-directory: buildproject/VideoCallLiveV20_REAL_VIDEO_CALL
         run: gradle signingReport
 
-      - name: Upload V19 APK
+      - name: Upload V20 APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V19-APK
-          path: buildproject/VideoCallLiveV19_CALLING_SAFETY_UPGRADE/app/build/outputs/apk/debug/app-debug.apk
+          name: VideoCallLive-V20-APK
+          path: buildproject/VideoCallLiveV20_REAL_VIDEO_CALL/app/build/outputs/apk/debug/app-debug.apk
