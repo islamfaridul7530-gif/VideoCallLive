@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "747760036312-bbkqa6nbpsv6qcoj06oenf1op95luat5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.videocalllive.app",
+            "certificate_hash": "6a4445abd68ac754f4c861ee039f5f47bdf23e5d"
+          }
+        },
+        {
+          "client_id": "747760036312-gum9n5aad8lav4prhm72dt9nc1vcj0i2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.videocalllive.app",
+            "certificate_hash": "e41ef47b3540568e4da4a62936f7378bbabc6b08"
+          }
+        },
+        {
           "client_id": "747760036312-2p51i6a53iodqcfa3ogu1iphjv0i12g4.apps.googleusercontent.com",
           "client_type": 3
         }
