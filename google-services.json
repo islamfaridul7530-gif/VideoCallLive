@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "747760036312-ajuhdtomq7p16no36fa7ojsk6tg38sue.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.videocalllive.app",
+            "certificate_hash": "ceb9fb3c68c3b98e122b329e3be7a4fe9923988d"
+          }
+        },
+        {
           "client_id": "747760036312-bbkqa6nbpsv6qcoj06oenf1op95luat5.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -27,6 +35,14 @@
           "android_info": {
             "package_name": "com.videocalllive.app",
             "certificate_hash": "e41ef47b3540568e4da4a62936f7378bbabc6b08"
+          }
+        },
+        {
+          "client_id": "747760036312-litntdbcj6sp3ill5l1l93f1763adhpi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.videocalllive.app",
+            "certificate_hash": "9cfee098c73fce4aa27130616ee52fdfc2684009"
           }
         },
         {
