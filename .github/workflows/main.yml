@@ -1,5 +1,5 @@
 
-name: Build Video Call Live V20 Release APK
+name: Build Video Call Live V20 Signed APK
 
 on:
   workflow_dispatch:
@@ -26,10 +26,8 @@ jobs:
 
       - name: Extract V20 project
         run: |
-          rm -rf buildproject
-          mkdir buildproject
+          mkdir -p buildproject
           unzip -q VideoCallLiveV20_REAL_VIDEO_CALL.zip -d buildproject
-          find buildproject -maxdepth 3 -type f | head -50
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -42,6 +40,42 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
           test -s "$RUNNER_TEMP/release.jks"
 
+      - name: Configure release signing
+        working-directory: buildproject/VideoCallLiveV20_REAL_VIDEO_CALL
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("app/build.gradle")
+          code = p.read_text()
+
+          assert "android {" in code, "Android block not found"
+          assert "signingConfigs" not in code, "Signing config already exists"
+          assert "buildTypes" not in code, "Build types already exist"
+
+          signing = """
+           signingConfigs {
+            release {
+             storeFile file(System.getenv("KEYSTORE_PATH"))
+             storePassword System.getenv("KEYSTORE_PASSWORD")
+             keyAlias System.getenv("KEY_ALIAS")
+             keyPassword System.getenv("KEY_PASSWORD")
+            }
+           }
+
+           buildTypes {
+            release {
+             signingConfig signingConfigs.release
+            }
+           }
+
+          """
+
+          code = code.replace("android {", "android {\\n" + signing, 1)
+          p.write_text(code)
+          print("Release signing configuration added.")
+          PY
+
       - name: Build signed Release APK
         working-directory: buildproject/VideoCallLiveV20_REAL_VIDEO_CALL
         env:
@@ -50,13 +84,20 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
           gradle assembleRelease --stacktrace
 
-      - name: Check signed APK
+      - name: Verify signed APK
         working-directory: buildproject/VideoCallLiveV20_REAL_VIDEO_CALL
         run: |
-          ls -lh app/build/outputs/apk/release/
-          test -s app/build/outputs/apk/release/app-release.apk
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose "$APK"
+          ls -lh "$APK"
 
       - name: Upload signed Release APK
         uses: actions/upload-artifact@v4
