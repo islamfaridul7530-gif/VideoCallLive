@@ -71,7 +71,7 @@ jobs:
 
           """
 
-          code = code.replace("android {", "android {\\n" + signing, 1)
+          code = code.replace("android {", "android {\n" + signing, 1)
           p.write_text(code)
           print("Release signing configuration added.")
           PY
