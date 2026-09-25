@@ -1,5 +1,5 @@
 
-name: Build Video Call Live V20 Signed APK
+name: Build Video Call Live V20 Signed Release APK
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
     branches:
       - main
     paths:
-      - 'VideoCallLiveV20_REAL_VIDEO_CALL.zip'
+      - 'VideoCallLiveV20*.zip'
       - '.github/workflows/main.yml'
 
 jobs:
@@ -27,7 +27,11 @@ jobs:
       - name: Extract V20 project
         run: |
           mkdir -p buildproject
-          unzip -q VideoCallLiveV20_REAL_VIDEO_CALL.zip -d buildproject
+          shopt -s nullglob
+          zips=(VideoCallLiveV20*.zip)
+          test "${#zips[@]}" -eq 1
+          unzip -q "${zips[0]}" -d buildproject
+          test -f buildproject/VideoCallLiveV20_REAL_VIDEO_CALL/app/build.gradle
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -54,20 +58,20 @@ jobs:
           assert "buildTypes" not in code, "Build types already exist"
 
           signing = """
-           signingConfigs {
-            release {
-             storeFile file(System.getenv("KEYSTORE_PATH"))
-             storePassword System.getenv("KEYSTORE_PASSWORD")
-             keyAlias System.getenv("KEY_ALIAS")
-             keyPassword System.getenv("KEY_PASSWORD")
-            }
-           }
+              signingConfigs {
+                  release {
+                      storeFile file(System.getenv("KEYSTORE_PATH"))
+                      storePassword System.getenv("KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("KEY_ALIAS")
+                      keyPassword System.getenv("KEY_PASSWORD")
+                  }
+              }
 
-           buildTypes {
-            release {
-             signingConfig signingConfigs.release
-            }
-           }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
 
           """
 
@@ -91,15 +95,30 @@ jobs:
 
       - name: Verify signed APK
         working-directory: buildproject/VideoCallLiveV20_REAL_VIDEO_CALL
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
           APK="app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
+
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
           test -n "$APKSIGNER"
+
           "$APKSIGNER" verify --verbose "$APK"
           ls -lh "$APK"
-      "$APKSIGNER" verify --print-certs "$APK"
-    
+
+          echo "===== APK CERTIFICATE ====="
+          "$APKSIGNER" verify --print-certs "$APK"
+
+          echo "===== KEYSTORE SHA-1 AND SHA-256 ====="
+          keytool -list -v \
+            -keystore "$KEYSTORE_PATH" \
+            -alias "$KEY_ALIAS" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            | grep -E 'SHA1:|SHA256:'
+
       - name: Upload signed Release APK
         uses: actions/upload-artifact@v4
         with:
