@@ -38,6 +38,7 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
+          test -n "$KEYSTORE_BASE64"
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
           test -s "$RUNNER_TEMP/release.jks"
 
@@ -48,11 +49,18 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: gradle assembleRelease --stacktrace
+        run: |
+          gradle assembleRelease --stacktrace
 
-      - name: Upload Release APK
+      - name: Check signed APK
+        working-directory: buildproject/VideoCallLiveV20_REAL_VIDEO_CALL
+        run: |
+          ls -lh app/build/outputs/apk/release/
+          test -s app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload signed Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V20-Release-APK
-          path: buildproject/VideoCallLiveV20_REAL_VIDEO_CALL/app/build/outputs/apk/release/*.apk
+          name: VideoCallLive-V20-Signed-Release-APK
+          path: buildproject/VideoCallLiveV20_REAL_VIDEO_CALL/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
