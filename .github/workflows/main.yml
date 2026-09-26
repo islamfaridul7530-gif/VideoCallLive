@@ -1,5 +1,5 @@
 
-name: Build Video Call Live V20 Signed Release APK
+name: Build Video Call Live V21 Signed Release APK
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
     branches:
       - main
     paths:
-      - 'VideoCallLiveV20*.zip'
+      - 'VideoCallLiveV21*.zip'
       - '.github/workflows/main.yml'
 
 jobs:
@@ -24,14 +24,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Extract V20 project
+      - name: Extract V21 project
         run: |
           mkdir -p buildproject
           shopt -s nullglob
-          zips=(VideoCallLiveV20*.zip)
+          zips=(VideoCallLiveV21*.zip)
           test "${#zips[@]}" -eq 1
           unzip -q "${zips[0]}" -d buildproject
-          test -f buildproject/VideoCallLiveV20_REAL_VIDEO_CALL/app/build.gradle
+          test -f buildproject/VideoCallLiveV21_ACCOUNT_RESTORE/app/build.gradle
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -45,7 +45,7 @@ jobs:
           test -s "$RUNNER_TEMP/release.jks"
 
       - name: Configure release signing
-        working-directory: buildproject/VideoCallLiveV20_REAL_VIDEO_CALL
+        working-directory: buildproject/VideoCallLiveV21_ACCOUNT_RESTORE
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -81,7 +81,7 @@ jobs:
           PY
 
       - name: Build signed Release APK
-        working-directory: buildproject/VideoCallLiveV20_REAL_VIDEO_CALL
+        working-directory: buildproject/VideoCallLiveV21_ACCOUNT_RESTORE
         env:
           KEYSTORE_PATH: ${{ runner.temp }}/release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -94,7 +94,7 @@ jobs:
           gradle assembleRelease --stacktrace
 
       - name: Verify signed APK
-        working-directory: buildproject/VideoCallLiveV20_REAL_VIDEO_CALL
+        working-directory: buildproject/VideoCallLiveV21_ACCOUNT_RESTORE
         env:
           KEYSTORE_PATH: ${{ runner.temp }}/release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -122,6 +122,6 @@ jobs:
       - name: Upload signed Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V20-Signed-Release-APK
-          path: buildproject/VideoCallLiveV20_REAL_VIDEO_CALL/app/build/outputs/apk/release/app-release.apk
+          name: VideoCallLive-V21-Signed-Release-APK
+          path: buildproject/VideoCallLiveV21_ACCOUNT_RESTORE/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
