@@ -24,13 +24,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK packages
-        run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
-
       - name: Extract V30 project
         shell: bash
         run: |
@@ -41,7 +34,6 @@ jobs:
           unzip -q VideoCallLiveV30_REAL_CHAT_VIDEO.zip -d buildproject
 
           PROJECT_DIR="buildproject/VideoCallLiveV28_CALL_AUDIO"
-
           test -f "$PROJECT_DIR/app/build.gradle"
           test -f "$PROJECT_DIR/settings.gradle"
 
@@ -51,6 +43,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Restore release keystore
         env:
@@ -109,7 +107,6 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -e
-
           test -n "$KEYSTORE_PASSWORD"
           test -n "$KEY_ALIAS"
           test -n "$KEY_PASSWORD"
@@ -120,7 +117,6 @@ jobs:
       - name: Verify signed APK
         run: |
           set -e
-
           APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
 
