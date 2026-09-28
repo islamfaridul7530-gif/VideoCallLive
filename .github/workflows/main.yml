@@ -1,5 +1,5 @@
 
-name: Build Video Call Live V28 Signed Release APK
+name: Build Video Call Live V29 Signed Release APK
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
     branches:
       - main
     paths:
-      - 'VideoCallLiveV28*.zip'
+      - 'VideoCallLiveV29_PREVIEW*.zip'
       - '.github/workflows/main.yml'
 
 jobs:
@@ -24,13 +24,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Extract V28 project
+      - name: Extract V29 project
         shell: bash
         run: |
           set -e
           mkdir -p buildproject
           shopt -s nullglob
-          zips=(VideoCallLiveV28*.zip)
+          zips=(VideoCallLiveV29_PREVIEW*.zip)
           test "${#zips[@]}" -eq 1
           unzip -q "${zips[0]}" -d buildproject
 
@@ -104,10 +104,6 @@ jobs:
           gradle assembleRelease --stacktrace
 
       - name: Verify signed APK
-        env:
-          KEYSTORE_PATH: ${{ runner.temp }}/release.jks
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
           set -e
           cd "$PROJECT_DIR"
@@ -124,6 +120,6 @@ jobs:
       - name: Upload signed Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V28-Signed-Release-APK
+          name: VideoCallLive-V29-Signed-Release-APK
           path: buildproject/**/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
