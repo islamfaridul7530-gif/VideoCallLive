@@ -1,5 +1,5 @@
 
-name: Build Video Call Live V30 Signed APK
+name: Build Video Call Live V30 Fixed Signed APK
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
     branches:
       - main
     paths:
-      - 'VideoCallLiveV30_REAL_CHAT_VIDEO.zip'
+      - 'VideoCallLiveV30_CHAT_BUILD_FIX.zip'
       - '.github/workflows/main.yml'
 
 jobs:
@@ -24,15 +24,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Extract V30 project
+      - name: Extract V30 Fixed project
         shell: bash
         run: |
           set -e
 
-          test -f VideoCallLiveV30_REAL_CHAT_VIDEO.zip
+          test -f VideoCallLiveV30_CHAT_BUILD_FIX.zip
 
           mkdir -p buildproject
-          unzip -q VideoCallLiveV30_REAL_CHAT_VIDEO.zip -d buildproject
+
+          unzip -q VideoCallLiveV30_CHAT_BUILD_FIX.zip -d buildproject
 
           PROJECT_DIR="buildproject/VideoCallLiveV28_CALL_AUDIO"
 
@@ -85,6 +86,7 @@ jobs:
           code = p.read_text()
 
           assert "android {" in code, "Android configuration not found"
+          assert "signingConfigs" not in code, "Signing already configured"
 
           signing = """
               signingConfigs {
@@ -146,9 +148,9 @@ jobs:
 
           ls -lh "$APK"
 
-      - name: Upload V30 APK
+      - name: Upload V30 Fixed APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V30-Signed-APK
+          name: VideoCallLive-V30-Fixed-Signed-APK
           path: buildproject/VideoCallLiveV28_CALL_AUDIO/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
