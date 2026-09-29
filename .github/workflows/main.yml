@@ -1,10 +1,9 @@
 
-name: Build Video Call Live V33 Signed APK
+name: Build Video Call Live V34 Signed APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -26,33 +25,24 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract V33 project
+      - name: Extract V34 project
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p extracted
-          unzip -q VideoCallLiveV33_BUILD_FIX.zip -d extracted
+          unzip -q VideoCallLiveV34_SOURCE_FIX.zip -d extracted
 
-          PROJECT_DIR=$(find extracted -name settings.gradle -type f -printf '%h\n' | head -n 1)
+          PROJECT_DIR="$(find extracted -name settings.gradle -type f -printf '%h\n' | head -n 1)"
           test -n "$PROJECT_DIR"
           test -f "$PROJECT_DIR/app/build.gradle"
-
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Project found: $PROJECT_DIR"
-
-      - name: Set up Android SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "y" | sudo "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Build release APK
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
-          gradle --no-daemon :app:assembleRelease --stacktrace
+          gradle --no-daemon :app:assembleRelease
 
       - name: Restore signing keystore
         shell: bash
@@ -74,30 +64,27 @@ jobs:
 
           UNSIGNED_APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release-unsigned.apk"
           test -f "$UNSIGNED_APK"
-
           mkdir -p signed
 
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 \
-            "$UNSIGNED_APK" signed/VideoCallLiveV33-aligned.apk
+            "$UNSIGNED_APK" signed/VideoCallLiveV34-aligned.apk
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
             --ks "$RUNNER_TEMP/release.keystore" \
             --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KEYSTORE_PASSWORD \
             --key-pass env:KEY_PASSWORD \
-            --out signed/VideoCallLiveV33.apk \
-            signed/VideoCallLiveV33-aligned.apk
+            --out signed/VideoCallLiveV34.apk \
+            signed/VideoCallLiveV34-aligned.apk
 
       - name: Verify signed APK
         shell: bash
         run: |
-          set -euo pipefail
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose signed/VideoCallLiveV33.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose signed/VideoCallLiveV34.apk
 
-      - name: Upload V33 APK
+      - name: Upload V34 APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLiveV33-Signed-APK
-          path: signed/VideoCallLiveV33.apk
+          name: VideoCallLiveV34-Signed-APK
+          path: signed/VideoCallLiveV34.apk
           if-no-files-found: error
-          retention-days: 30
