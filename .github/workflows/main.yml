@@ -1,5 +1,5 @@
 
-name: Build Video Call Live V34 Signed APK
+name: Build Video Call Live V35 Signed APK
 
 on:
   push:
@@ -25,12 +25,12 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract V34 project
+      - name: Extract V35 project
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p extracted
-          unzip -q VideoCallLiveV34_SOURCE_FIX.zip -d extracted
+          unzip -q VideoCallLiveV35_CALL_UI_FIX.zip -d extracted
 
           PROJECT_DIR="$(find extracted -name settings.gradle -type f -printf '%h\n' | head -n 1)"
           test -n "$PROJECT_DIR"
@@ -67,24 +67,24 @@ jobs:
           mkdir -p signed
 
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 \
-            "$UNSIGNED_APK" signed/VideoCallLiveV34-aligned.apk
+            "$UNSIGNED_APK" signed/VideoCallLiveV35-aligned.apk
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
             --ks "$RUNNER_TEMP/release.keystore" \
             --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KEYSTORE_PASSWORD \
             --key-pass env:KEY_PASSWORD \
-            --out signed/VideoCallLiveV34.apk \
-            signed/VideoCallLiveV34-aligned.apk
+            --out signed/VideoCallLiveV35.apk \
+            signed/VideoCallLiveV35-aligned.apk
 
       - name: Verify signed APK
         shell: bash
         run: |
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose signed/VideoCallLiveV34.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose signed/VideoCallLiveV35.apk
 
-      - name: Upload V34 APK
+      - name: Upload V35 APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLiveV34-Signed-APK
-          path: signed/VideoCallLiveV34.apk
+          name: VideoCallLiveV35-Signed-APK
+          path: signed/VideoCallLiveV35.apk
           if-no-files-found: error
