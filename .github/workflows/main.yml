@@ -1,5 +1,5 @@
 
-name: Build Video Call Live V30 Fixed Signed APK
+name: Build Video Call Live V30 FIX2 Signed APK
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
     branches:
       - main
     paths:
-      - 'VideoCallLiveV30_CHAT_BUILD_FIX.zip'
+      - 'VideoCallLiveV30_CHAT_BUILD_FIX2.zip'
       - '.github/workflows/main.yml'
 
 jobs:
@@ -24,19 +24,15 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Extract V30 Fixed project
+      - name: Extract V30 FIX2 project
         shell: bash
         run: |
           set -e
-
-          test -f VideoCallLiveV30_CHAT_BUILD_FIX.zip
-
+          test -f VideoCallLiveV30_CHAT_BUILD_FIX2.zip
           mkdir -p buildproject
-
-          unzip -q VideoCallLiveV30_CHAT_BUILD_FIX.zip -d buildproject
+          unzip -q VideoCallLiveV30_CHAT_BUILD_FIX2.zip -d buildproject
 
           PROJECT_DIR="buildproject/VideoCallLiveV28_CALL_AUDIO"
-
           test -f "$PROJECT_DIR/app/build.gradle"
           test -f "$PROJECT_DIR/settings.gradle"
 
@@ -51,13 +47,9 @@ jobs:
         shell: bash
         run: |
           set -e
-
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
-
           test -n "$SDKMANAGER"
-
           yes | "$SDKMANAGER" --licenses > /dev/null || true
-
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Restore release keystore
@@ -65,18 +57,14 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           set -e
-
           test -n "$KEYSTORE_BASE64"
-
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
-
           test -s "$RUNNER_TEMP/release.jks"
 
       - name: Configure release signing
         shell: bash
         run: |
           set -e
-
           cd "$PROJECT_DIR"
 
           python3 - <<'PY'
@@ -105,14 +93,8 @@ jobs:
               }
           """
 
-          code = code.replace(
-              "android {",
-              "android {\n" + signing,
-              1
-          )
-
+          code = code.replace("android {", "android {\n" + signing, 1)
           p.write_text(code)
-
           print("Release signing configured.")
           PY
 
@@ -124,33 +106,25 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -e
-
           test -n "$KEYSTORE_PASSWORD"
           test -n "$KEY_ALIAS"
           test -n "$KEY_PASSWORD"
-
           cd "$PROJECT_DIR"
-
           gradle assembleRelease --stacktrace
 
       - name: Verify signed APK
         shell: bash
         run: |
           set -e
-
           APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
-
           test -s "$APK"
-
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
-
           "$APKSIGNER" verify --verbose "$APK"
-
           ls -lh "$APK"
 
-      - name: Upload V30 Fixed APK
+      - name: Upload V30 FIX2 APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V30-Fixed-Signed-APK
+          name: VideoCallLive-V30-FIX2-Signed-APK
           path: buildproject/VideoCallLiveV28_CALL_AUDIO/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
