@@ -1,5 +1,5 @@
 
-name: Build Video Call Live V30 FIX2 Signed APK
+name: Build Video Call Live V31 Signed Release APK
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
     branches:
       - main
     paths:
-      - 'VideoCallLiveV30_CHAT_BUILD_FIX2.zip'
+      - 'VideoCallLiveV31*.zip'
       - '.github/workflows/main.yml'
 
 jobs:
@@ -18,63 +18,56 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Extract V30 FIX2 project
+      - name: Extract V31 project
         shell: bash
         run: |
-          set -e
-          test -f VideoCallLiveV30_CHAT_BUILD_FIX2.zip
+          set -euo pipefail
           mkdir -p buildproject
-          unzip -q VideoCallLiveV30_CHAT_BUILD_FIX2.zip -d buildproject
-
-          PROJECT_DIR="buildproject/VideoCallLiveV28_CALL_AUDIO"
-          test -f "$PROJECT_DIR/app/build.gradle"
-          test -f "$PROJECT_DIR/settings.gradle"
-
+          shopt -s nullglob
+          zips=(VideoCallLiveV31*.zip)
+          test "${#zips[@]}" -eq 1
+          unzip -q "${zips[0]}" -d buildproject
+          mapfile -t projects < <(find buildproject -type f -path '*/app/build.gradle' -printf '%h\n')
+          test "${#projects[@]}" -eq 1
+          PROJECT_DIR="${projects[0]%/app}"
+          test -f "$PROJECT_DIR/settings.gradle" || test -f "$PROJECT_DIR/settings.gradle.kts"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Project: $PROJECT_DIR"
 
-      - name: Set up Gradle
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
-
-      - name: Install Android SDK packages
-        shell: bash
-        run: |
-          set -e
-          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
-          test -n "$SDKMANAGER"
-          yes | "$SDKMANAGER" --licenses > /dev/null || true
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Restore release keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          set -e
+          set -euo pipefail
           test -n "$KEYSTORE_BASE64"
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
           test -s "$RUNNER_TEMP/release.jks"
 
       - name: Configure release signing
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/release.jks
         shell: bash
         run: |
-          set -e
-          cd "$PROJECT_DIR"
-
+          set -euo pipefail
           python3 - <<'PY'
+          import os
           from pathlib import Path
 
-          p = Path("app/build.gradle")
+          p = Path(os.environ["PROJECT_DIR"]) / "app/build.gradle"
           code = p.read_text()
 
-          assert "android {" in code, "Android configuration not found"
+          assert "android {" in code, "Android block not found"
           assert "signingConfigs" not in code, "Signing already configured"
+          assert "buildTypes" not in code, "Build types already configured"
 
           signing = """
               signingConfigs {
@@ -93,7 +86,7 @@ jobs:
               }
           """
 
-          code = code.replace("android {", "android {\n" + signing, 1)
+          code = code.replace("android {", "android {" + signing, 1)
           p.write_text(code)
           print("Release signing configured.")
           PY
@@ -104,8 +97,9 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
           test -n "$KEYSTORE_PASSWORD"
           test -n "$KEY_ALIAS"
           test -n "$KEY_PASSWORD"
@@ -115,16 +109,17 @@ jobs:
       - name: Verify signed APK
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
           APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
-          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$APKSIGNER"
           "$APKSIGNER" verify --verbose "$APK"
           ls -lh "$APK"
 
-      - name: Upload V30 FIX2 APK
+      - name: Upload signed Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V30-FIX2-Signed-APK
-          path: buildproject/VideoCallLiveV28_CALL_AUDIO/app/build/outputs/apk/release/app-release.apk
+          name: VideoCallLive-V31-Signed-Release-APK
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
