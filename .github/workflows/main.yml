@@ -1,9 +1,8 @@
-name: Build Video Call Live V40
+name: Build Video Call Live V41 Signed APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -25,30 +24,17 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract V40 project
+      - name: Extract V41 project
         shell: bash
         run: |
           set -euo pipefail
-
-          rm -rf extracted
           mkdir -p extracted
-
-          unzip -q VideoCallLiveV40_REAL_PHOTO_DATA_PATH_FIX.zip -d extracted
+          unzip -q VideoCallLiveV41_HOME_PROFILE_REMOTE_VIDEO_FIX.zip -d extracted
 
           PROJECT_DIR="$(find extracted -name settings.gradle -type f -printf '%h\n' | head -n 1)"
-
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: settings.gradle not found"
-            exit 1
-          fi
-
-          if [ ! -f "$PROJECT_DIR/app/build.gradle" ]; then
-            echo "ERROR: app/build.gradle not found"
-            exit 1
-          fi
-
+          test -n "$PROJECT_DIR"
+          test -f "$PROJECT_DIR/app/build.gradle"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Project found at: $PROJECT_DIR"
 
       - name: Build release APK
         shell: bash
@@ -63,26 +49,10 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
-
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "ERROR: KEYSTORE_BASE64 secret is empty"
-            exit 1
-          fi
-
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
           test -s "$RUNNER_TEMP/release.keystore"
 
-      - name: Find Android Build Tools
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          BUILD_TOOLS_VERSION="$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
-
-          echo "BUILD_TOOLS_VERSION=$BUILD_TOOLS_VERSION" >> "$GITHUB_ENV"
-          echo "Using Android Build Tools: $BUILD_TOOLS_VERSION"
-
-      - name: Sign V40 APK
+      - name: Sign release APK
         shell: bash
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -92,43 +62,30 @@ jobs:
           set -euo pipefail
 
           UNSIGNED_APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release-unsigned.apk"
-
-          if [ ! -f "$UNSIGNED_APK" ]; then
-            echo "ERROR: Unsigned APK not found"
-            find "$PROJECT_DIR/app/build/outputs" -type f || true
-            exit 1
-          fi
-
+          test -f "$UNSIGNED_APK"
           mkdir -p signed
 
-          "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/zipalign" \
-            -f -p 4 \
-            "$UNSIGNED_APK" \
-            signed/VideoCallLiveV40-aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 \
+            "$UNSIGNED_APK" signed/VideoCallLiveV41-aligned.apk
 
-          "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" sign \
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
             --ks "$RUNNER_TEMP/release.keystore" \
             --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KEYSTORE_PASSWORD \
             --key-pass env:KEY_PASSWORD \
-            --out signed/VideoCallLiveV40.apk \
-            signed/VideoCallLiveV40-aligned.apk
+            --out signed/VideoCallLiveV41.apk \
+            signed/VideoCallLiveV41-aligned.apk
 
       - name: Verify signed APK
         shell: bash
         run: |
           set -euo pipefail
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose \
+            signed/VideoCallLiveV41.apk
 
-          "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" \
-            verify \
-            --verbose \
-            --print-certs \
-            signed/VideoCallLiveV40.apk
-
-      - name: Upload V40 APK
+      - name: Upload V41 APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLiveV40-Signed-APK
-          path: signed/VideoCallLiveV40.apk
+          name: VideoCallLiveV41-Signed-APK
+          path: signed/VideoCallLiveV41.apk
           if-no-files-found: error
-          retention-days: 30
