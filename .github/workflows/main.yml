@@ -26,4 +26,35 @@ jobs:
       - name: Give Gradle permission
         run: chmod +x gradlew
 
-      - name:
+      - name: Decode signing keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.keystore
+
+      - name: Build signed release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew clean assembleRelease
+
+      - name: Find generated APK
+        run: |
+          echo "Generated APK files:"
+          find app/build/outputs/apk -type f -name "*.apk" -print
+
+      - name: Rename V42 APK
+        run: |
+          APK=$(find app/build/outputs/apk/release -type f -name "*.apk" | head -n 1)
+          if [ -z "$APK" ]; then
+            echo "Release APK not found"
+            exit 1
+          fi
+          cp "$APK" VideoCallLive-V42.apk
+
+      - name: Upload V42 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoCallLive-V42
+          path: VideoCallLive-V42.apk
+          if-no-files-found: error
+          retention-days: 30
