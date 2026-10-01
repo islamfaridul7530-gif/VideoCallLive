@@ -1,4 +1,4 @@
-name: Build Video Call Live V39
+name: Build Video Call Live V40
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract V39 project
+      - name: Extract V40 project
         shell: bash
         run: |
           set -euo pipefail
@@ -33,7 +33,7 @@ jobs:
           rm -rf extracted
           mkdir -p extracted
 
-          unzip -q VideoCallLiveV39_REAL_PHOTO_INCOMING_FIX.zip -d extracted
+          unzip -q VideoCallLiveV40_REAL_PHOTO_DATA_PATH_FIX.zip -d extracted
 
           PROJECT_DIR="$(find extracted -name settings.gradle -type f -printf '%h\n' | head -n 1)"
 
@@ -70,11 +70,7 @@ jobs:
           fi
 
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
-
-          if [ ! -s "$RUNNER_TEMP/release.keystore" ]; then
-            echo "ERROR: Keystore could not be restored"
-            exit 1
-          fi
+          test -s "$RUNNER_TEMP/release.keystore"
 
       - name: Find Android Build Tools
         shell: bash
@@ -86,7 +82,7 @@ jobs:
           echo "BUILD_TOOLS_VERSION=$BUILD_TOOLS_VERSION" >> "$GITHUB_ENV"
           echo "Using Android Build Tools: $BUILD_TOOLS_VERSION"
 
-      - name: Sign V39 APK
+      - name: Sign V40 APK
         shell: bash
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -108,15 +104,15 @@ jobs:
           "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/zipalign" \
             -f -p 4 \
             "$UNSIGNED_APK" \
-            signed/VideoCallLiveV39-aligned.apk
+            signed/VideoCallLiveV40-aligned.apk
 
           "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" sign \
             --ks "$RUNNER_TEMP/release.keystore" \
             --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KEYSTORE_PASSWORD \
             --key-pass env:KEY_PASSWORD \
-            --out signed/VideoCallLiveV39.apk \
-            signed/VideoCallLiveV39-aligned.apk
+            --out signed/VideoCallLiveV40.apk \
+            signed/VideoCallLiveV40-aligned.apk
 
       - name: Verify signed APK
         shell: bash
@@ -127,12 +123,12 @@ jobs:
             verify \
             --verbose \
             --print-certs \
-            signed/VideoCallLiveV39.apk
+            signed/VideoCallLiveV40.apk
 
-      - name: Upload V39 APK
+      - name: Upload V40 APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLiveV39-Signed-APK
-          path: signed/VideoCallLiveV39.apk
+          name: VideoCallLiveV40-Signed-APK
+          path: signed/VideoCallLiveV40.apk
           if-no-files-found: error
           retention-days: 30
