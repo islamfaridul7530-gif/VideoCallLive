@@ -1,4 +1,4 @@
-name: Build Video Call Live V42 Signed APK
+name: Build V40 Base Remote Video Fix APK
 
 on:
   push:
@@ -20,12 +20,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
+      - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Extract V42 project
+      - name: Extract V40 Base project
         shell: bash
         run: |
           set -euo pipefail
@@ -33,18 +33,19 @@ jobs:
           rm -rf extracted
           mkdir -p extracted
 
-          unzip -q "VideoCallLiveV42_SAFE_AUDIO_REMOTE_VIDEO_PROFILE_FIX.zip" -d extracted
+          unzip -q "VideoCallLiveV41_SAFE_REMOTE_VIDEO_FIX.zip" -d extracted
 
-          PROJECT_DIR="$(find extracted -type f -name gradlew -printf '%h\n' | head -n 1)"
+          PROJECT_DIR="$(find extracted -type f -name settings.gradle -printf '%h\n' | head -n 1)"
 
           if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: gradlew not found inside V42 ZIP"
-            find extracted -maxdepth 4 -type f | head -100
+            echo "ERROR: settings.gradle not found inside ZIP"
+            find extracted -maxdepth 5 -type f | head -100
             exit 1
           fi
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "Project found at: $PROJECT_DIR"
+          ls -la "$PROJECT_DIR"
 
       - name: Build release APK
         shell: bash
@@ -52,19 +53,19 @@ jobs:
           set -euo pipefail
 
           cd "$PROJECT_DIR"
-          chmod +x gradlew
-          ./gradlew clean assembleRelease
 
-          UNSIGNED_APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          gradle clean assembleRelease
 
-          if [ -z "$UNSIGNED_APK" ]; then
+          APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+
+          if [ -z "$APK" ]; then
             echo "ERROR: Release APK not found"
             find app/build/outputs -type f || true
             exit 1
           fi
 
-          echo "UNSIGNED_APK=$PROJECT_DIR/$UNSIGNED_APK" >> "$GITHUB_ENV"
-          echo "APK found: $UNSIGNED_APK"
+          echo "UNSIGNED_APK=$PROJECT_DIR/$APK" >> "$GITHUB_ENV"
+          echo "APK found: $APK"
 
       - name: Restore signing keystore
         shell: bash
@@ -80,7 +81,7 @@ jobs:
 
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
 
-      - name: Sign V42 APK
+      - name: Sign APK
         shell: bash
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -96,15 +97,15 @@ jobs:
           "$BUILD_TOOLS_DIR/zipalign" \
             -f -p 4 \
             "$UNSIGNED_APK" \
-            signed/VideoCallLiveV42-aligned.apk
+            signed/VideoCallLive-V40BaseFix01-aligned.apk
 
           "$BUILD_TOOLS_DIR/apksigner" sign \
             --ks "$RUNNER_TEMP/release.keystore" \
             --ks-pass "pass:$KEYSTORE_PASSWORD" \
             --ks-key-alias "$KEY_ALIAS" \
             --key-pass "pass:$KEY_PASSWORD" \
-            --out signed/VideoCallLiveV42.apk \
-            signed/VideoCallLiveV42-aligned.apk
+            --out signed/VideoCallLive-V40BaseFix01.apk \
+            signed/VideoCallLive-V40BaseFix01-aligned.apk
 
       - name: Verify signed APK
         shell: bash
@@ -113,14 +114,12 @@ jobs:
 
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
 
-          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLiveV42.apk
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V40BaseFix01.apk
 
-          ls -lh signed/VideoCallLiveV42.apk
-
-      - name: Upload V42 Signed APK
+      - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLiveV42-Signed-APK
-          path: signed/VideoCallLiveV42.apk
+          name: VideoCallLive-V40Base-RemoteVideo-Fix01
+          path: signed/VideoCallLive-V40BaseFix01.apk
           if-no-files-found: error
           retention-days: 30
