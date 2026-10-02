@@ -1,4 +1,4 @@
-name: Build V40 Base Remote Video Fix APK
+name: Build V41 Home Card UI Fix APK
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract V40 Base project
+      - name: Extract V41 Home Card UI project
         shell: bash
         run: |
           set -euo pipefail
@@ -33,12 +33,12 @@ jobs:
           rm -rf extracted
           mkdir -p extracted
 
-          unzip -q "VideoCallLiveV41_SAFE_REMOTE_VIDEO_FIX.zip" -d extracted
+          unzip -q "VideoCallLiveV41_HOME_CARD_UI_FIX.zip" -d extracted
 
           PROJECT_DIR="$(find extracted -type f -name settings.gradle -printf '%h\n' | head -n 1)"
 
           if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: settings.gradle not found inside ZIP"
+            echo "ERROR: settings.gradle not found in ZIP"
             find extracted -maxdepth 5 -type f | head -100
             exit 1
           fi
@@ -97,15 +97,15 @@ jobs:
           "$BUILD_TOOLS_DIR/zipalign" \
             -f -p 4 \
             "$UNSIGNED_APK" \
-            signed/VideoCallLive-V40BaseFix01-aligned.apk
+            signed/VideoCallLive-V41-HomeCardUI-aligned.apk
 
           "$BUILD_TOOLS_DIR/apksigner" sign \
             --ks "$RUNNER_TEMP/release.keystore" \
             --ks-pass "pass:$KEYSTORE_PASSWORD" \
             --ks-key-alias "$KEY_ALIAS" \
             --key-pass "pass:$KEY_PASSWORD" \
-            --out signed/VideoCallLive-V40BaseFix01.apk \
-            signed/VideoCallLive-V40BaseFix01-aligned.apk
+            --out signed/VideoCallLive-V41-HomeCardUI.apk \
+            signed/VideoCallLive-V41-HomeCardUI-aligned.apk
 
       - name: Verify signed APK
         shell: bash
@@ -114,12 +114,12 @@ jobs:
 
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
 
-          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V40BaseFix01.apk
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V41-HomeCardUI.apk
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V40Base-RemoteVideo-Fix01
-          path: signed/VideoCallLive-V40BaseFix01.apk
+          name: VideoCallLive-V41-HomeCard-UI-Fix
+          path: signed/VideoCallLive-V41-HomeCardUI.apk
           if-no-files-found: error
           retention-days: 30
