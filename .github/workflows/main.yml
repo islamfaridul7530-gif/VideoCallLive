@@ -1,4 +1,4 @@
-name: Build V41 Photo Quality Crop Status Fix
+name: Build V41 Chat Profile Home UI Fix
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract V41 Photo Quality Crop Status Fix
+      - name: Extract V41 Chat Profile Home UI Fix
         shell: bash
         run: |
           set -euo pipefail
@@ -33,7 +33,7 @@ jobs:
           rm -rf extracted
           mkdir -p extracted
 
-          unzip -q "VideoCallLiveV41_PHOTO_QUALITY_CROP_STATUS_FIX.zip" -d extracted
+          unzip -q "VideoCallLiveV41_CHAT_PROFILE_HOME_UI_FIX.zip" -d extracted
 
           PROJECT_DIR="$(find extracted -type f -name settings.gradle -printf '%h\n' | head -n 1)"
 
@@ -97,15 +97,15 @@ jobs:
           "$BUILD_TOOLS_DIR/zipalign" \
             -f -p 4 \
             "$UNSIGNED_APK" \
-            signed/VideoCallLive-V41-PhotoQualityFix-aligned.apk
+            signed/VideoCallLive-V41-ChatProfileHomeUIFix-aligned.apk
 
           "$BUILD_TOOLS_DIR/apksigner" sign \
             --ks "$RUNNER_TEMP/release.keystore" \
             --ks-pass "pass:$KEYSTORE_PASSWORD" \
             --ks-key-alias "$KEY_ALIAS" \
             --key-pass "pass:$KEY_PASSWORD" \
-            --out signed/VideoCallLive-V41-PhotoQualityFix.apk \
-            signed/VideoCallLive-V41-PhotoQualityFix-aligned.apk
+            --out signed/VideoCallLive-V41-ChatProfileHomeUIFix.apk \
+            signed/VideoCallLive-V41-ChatProfileHomeUIFix-aligned.apk
 
       - name: Verify signed APK
         shell: bash
@@ -115,12 +115,12 @@ jobs:
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
 
           "$BUILD_TOOLS_DIR/apksigner" verify --verbose \
-            signed/VideoCallLive-V41-PhotoQualityFix.apk
+            signed/VideoCallLive-V41-ChatProfileHomeUIFix.apk
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V41-Photo-Quality-Crop-Status-Fix
-          path: signed/VideoCallLive-V41-PhotoQualityFix.apk
+          name: VideoCallLive-V41-Chat-Profile-Home-UI-Fix
+          path: signed/VideoCallLive-V41-ChatProfileHomeUIFix.apk
           if-no-files-found: error
           retention-days: 30
