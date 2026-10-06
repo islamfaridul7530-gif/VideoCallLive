@@ -48,4 +48,4 @@ jobs:
           printf '%s' "$CASHFREE_SECRET_KEY" | firebase functions:secrets:set CASHFREE_SECRET_KEY --project videocalllive-bcd7c --data-file=-
 
       - name: Deploy Firebase Functions
-        run: firebase deploy --only functions --project videocalllive-bcd7c --non-interactive
+        run: firebase deploy --only functions --project videocalllive-bcd7c --non-interactive --force
