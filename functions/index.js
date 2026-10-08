@@ -20,7 +20,6 @@ const CASHFREE_API_VERSION = "2025-01-01";
  * Coin packages
  *
  * ₹15 = temporary TEST package.
- * बाद में इसे हटाया जा सकता है.
  *
  * Normal packages:
  * ₹100  = 100 Coins
@@ -30,31 +29,31 @@ const CASHFREE_API_VERSION = "2025-01-01";
  */
 
 const COIN_PACKS = {
-  "15": {
+  "test_15": {
     amount: 15,
     coins: 300,
     test: true,
   },
 
-  "100": {
+  "pack_100": {
     amount: 100,
     coins: 100,
     test: false,
   },
 
-  "200": {
+  "pack_200": {
     amount: 200,
     coins: 220,
     test: false,
   },
 
-  "500": {
+  "pack_500": {
     amount: 500,
     coins: 600,
     test: false,
   },
 
-  "1000": {
+  "pack_1000": {
     amount: 1000,
     coins: 1300,
     test: false,
@@ -141,12 +140,6 @@ exports.healthCheck = onRequest(
 
 /*
  * CREATE CASHFREE ORDER
- *
- * Android APK calls:
- * createCashfreeOrder
- *
- * Region:
- * asia-south1
  */
 exports.createCashfreeOrder = onCall(
   {
@@ -159,9 +152,6 @@ exports.createCashfreeOrder = onCall(
 
   async (request) => {
 
-    /*
-     * User must be logged in
-     */
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
@@ -169,10 +159,6 @@ exports.createCashfreeOrder = onCall(
       );
     }
 
-
-    /*
-     * Find selected coin package
-     */
     const pack = getPack(request.data);
 
     if (!pack) {
@@ -181,7 +167,6 @@ exports.createCashfreeOrder = onCall(
         "Invalid coin pack."
       );
     }
-
 
     const uid = request.auth.uid;
 
@@ -194,10 +179,6 @@ exports.createCashfreeOrder = onCall(
       );
     }
 
-
-    /*
-     * Create unique Cashfree order ID
-     */
     const orderId =
       "VCL_" +
       uid.substring(0, 8) +
@@ -208,14 +189,9 @@ exports.createCashfreeOrder = onCall(
         .toString(36)
         .substring(2, 8);
 
-
-    /*
-     * Firestore payment order
-     */
     const orderRef = db
       .collection("paymentOrders")
       .doc(orderId);
-
 
     await orderRef.set({
       uid: uid,
@@ -238,12 +214,8 @@ exports.createCashfreeOrder = onCall(
         admin.firestore.FieldValue.serverTimestamp(),
     });
 
-
     try {
 
-      /*
-       * Create Cashfree order
-       */
       const response = await fetch(
         CASHFREE_BASE_URL + "/pg/orders",
         {
@@ -284,13 +256,8 @@ exports.createCashfreeOrder = onCall(
         }
       );
 
-
       const result = await response.json();
 
-
-      /*
-       * Cashfree order creation failed
-       */
       if (
         !response.ok ||
         !result.payment_session_id
@@ -302,7 +269,6 @@ exports.createCashfreeOrder = onCall(
           JSON.stringify(result)
         );
 
-
         await orderRef.update({
           status: "CREATE_FAILED",
 
@@ -312,17 +278,12 @@ exports.createCashfreeOrder = onCall(
             admin.firestore.FieldValue.serverTimestamp(),
         });
 
-
         throw new HttpsError(
           "internal",
           "Unable to create Cashfree payment order."
         );
       }
 
-
-      /*
-       * Save payment session
-       */
       await orderRef.update({
 
         status: "CHECKOUT_READY",
@@ -334,10 +295,6 @@ exports.createCashfreeOrder = onCall(
           admin.firestore.FieldValue.serverTimestamp(),
       });
 
-
-      /*
-       * Send data back to Android
-       */
       return {
 
         success: true,
@@ -360,12 +317,10 @@ exports.createCashfreeOrder = onCall(
         throw error;
       }
 
-
       console.error(
         "createCashfreeOrder failed:",
         error
       );
-
 
       await orderRef.update({
 
@@ -374,7 +329,6 @@ exports.createCashfreeOrder = onCall(
         updatedAt:
           admin.firestore.FieldValue.serverTimestamp(),
       });
-
 
       throw new HttpsError(
         "internal",
@@ -387,12 +341,6 @@ exports.createCashfreeOrder = onCall(
 
 /*
  * VERIFY CASHFREE PAYMENT
- *
- * Android APK calls:
- * verifyCashfreePayment
- *
- * Region:
- * asia-south1
  */
 exports.verifyCashfreePayment = onCall(
   {
@@ -406,9 +354,6 @@ exports.verifyCashfreePayment = onCall(
 
   async (request) => {
 
-    /*
-     * Login required
-     */
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
@@ -416,11 +361,9 @@ exports.verifyCashfreePayment = onCall(
       );
     }
 
-
     const orderId = String(
       request.data?.orderId || ""
     ).trim();
-
 
     if (!orderId) {
       throw new HttpsError(
@@ -429,17 +372,12 @@ exports.verifyCashfreePayment = onCall(
       );
     }
 
-
-    /*
-     * Get payment order
-     */
     const orderRef = db
       .collection("paymentOrders")
       .doc(orderId);
 
     const orderSnap =
       await orderRef.get();
-
 
     if (!orderSnap.exists) {
       throw new HttpsError(
@@ -448,13 +386,8 @@ exports.verifyCashfreePayment = onCall(
       );
     }
 
-
     const order = orderSnap.data();
 
-
-    /*
-     * Security check
-     */
     if (order.uid !== request.auth.uid) {
       throw new HttpsError(
         "permission-denied",
@@ -462,10 +395,6 @@ exports.verifyCashfreePayment = onCall(
       );
     }
 
-
-    /*
-     * Already credited?
-     */
     if (order.status === "PAID") {
 
       return {
@@ -482,12 +411,8 @@ exports.verifyCashfreePayment = onCall(
       };
     }
 
-
     try {
 
-      /*
-       * Ask Cashfree for payment status
-       */
       const response = await fetch(
 
         CASHFREE_BASE_URL +
@@ -502,10 +427,8 @@ exports.verifyCashfreePayment = onCall(
         }
       );
 
-
       const payments =
         await response.json();
-
 
       if (
         !response.ok ||
@@ -518,17 +441,12 @@ exports.verifyCashfreePayment = onCall(
           JSON.stringify(payments)
         );
 
-
         throw new HttpsError(
           "internal",
           "Unable to verify Cashfree payment."
         );
       }
 
-
-      /*
-       * Find successful payment
-       */
       const successfulPayment =
         payments.find(
           (payment) =>
@@ -536,10 +454,6 @@ exports.verifyCashfreePayment = onCall(
             "SUCCESS"
         );
 
-
-      /*
-       * Payment not successful yet
-       */
       if (!successfulPayment) {
 
         const pendingPayment =
@@ -548,7 +462,6 @@ exports.verifyCashfreePayment = onCall(
               payment.payment_status ===
               "PENDING"
           );
-
 
         return {
 
@@ -564,18 +477,10 @@ exports.verifyCashfreePayment = onCall(
         };
       }
 
-
-      /*
-       * User document
-       */
       const userRef = db
         .collection("users")
         .doc(request.auth.uid);
 
-
-      /*
-       * Credit coins safely
-       */
       await db.runTransaction(
         async (transaction) => {
 
@@ -584,7 +489,6 @@ exports.verifyCashfreePayment = onCall(
               orderRef
             );
 
-
           if (!freshOrderSnap.exists) {
             throw new HttpsError(
               "not-found",
@@ -592,10 +496,8 @@ exports.verifyCashfreePayment = onCall(
             );
           }
 
-
           const freshOrder =
             freshOrderSnap.data();
-
 
           if (
             freshOrder.uid !==
@@ -608,10 +510,6 @@ exports.verifyCashfreePayment = onCall(
             );
           }
 
-
-          /*
-           * Prevent duplicate coin credit
-           */
           if (
             freshOrder.status ===
             "PAID"
@@ -619,12 +517,10 @@ exports.verifyCashfreePayment = onCall(
             return;
           }
 
-
           const userSnap =
             await transaction.get(
               userRef
             );
-
 
           const currentCoins =
             Number(
@@ -633,21 +529,15 @@ exports.verifyCashfreePayment = onCall(
                 : 0
             );
 
-
           const coinsToAdd =
             Number(
               freshOrder.coins || 0
             );
 
-
           const newCoins =
             currentCoins +
             coinsToAdd;
 
-
-          /*
-           * Update user coins
-           */
           transaction.set(
 
             userRef,
@@ -665,10 +555,6 @@ exports.verifyCashfreePayment = onCall(
             }
           );
 
-
-          /*
-           * Mark payment as paid
-           */
           transaction.update(
 
             orderRef,
@@ -696,10 +582,6 @@ exports.verifyCashfreePayment = onCall(
         }
       );
 
-
-      /*
-       * Success response
-       */
       return {
 
         success: true,
@@ -713,19 +595,16 @@ exports.verifyCashfreePayment = onCall(
         ),
       };
 
-
     } catch (error) {
 
       if (error instanceof HttpsError) {
         throw error;
       }
 
-
       console.error(
         "verifyCashfreePayment failed:",
         error
       );
-
 
       throw new HttpsError(
         "internal",
@@ -753,12 +632,10 @@ exports.getCoinBalance = onCall(
       );
     }
 
-
     const snap = await db
       .collection("users")
       .doc(request.auth.uid)
       .get();
-
 
     return {
 
