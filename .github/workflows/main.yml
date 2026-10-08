@@ -33,8 +33,7 @@ jobs:
           rm -rf extracted
           mkdir -p extracted
 
-          unzip -q "VideoCallLiveV44_VIDEO_QUALITY.zip" -d extracted
-
+          unzip -q "VideoCallLive-PAYMENT-TEST-15-FINAL.zip" -d extracted
           PROJECT_DIR="$(find extracted -type f -name settings.gradle -printf '%h\n' | head -n 1)"
 
           if [ -z "$PROJECT_DIR" ]; then
