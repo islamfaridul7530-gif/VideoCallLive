@@ -1,0 +1,77 @@
+name: Patch Android account rules and build test APK
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "VideoCallLive-PAYMENT-TEST-15-FINAL.zip"
+      - ".github/workflows/patch-android-test.yml"
+      - ".github/scripts/patch_android.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Extract and patch Android source
+        run: |
+          set -euo pipefail
+          rm -rf android-work
+          mkdir android-work
+          unzip -q VideoCallLive-PAYMENT-TEST-15-FINAL.zip -d android-work
+          PROJECT="$(find android-work -type f -name settings.gradle -printf '%h\n' | head -n 1)"
+          test -n "$PROJECT"
+          python3 .github/scripts/patch_android.py "$PROJECT"
+          echo "$PROJECT" > /tmp/android-project-path
+
+      - name: Build debug APK
+        run: |
+          set -euo pipefail
+          PROJECT="$(cat /tmp/android-project-path)"
+          chmod +x "$PROJECT/gradlew"
+          cd "$PROJECT"
+          ./gradlew --no-daemon assembleDebug
+          mkdir -p "$GITHUB_WORKSPACE/test-apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/test-apk/VideoCallLive-test-debug.apk"
+
+      - name: Repackage patched source ZIP
+        run: |
+          set -euo pipefail
+          rm -f VideoCallLive-PAYMENT-TEST-15-FINAL.zip
+          (cd android-work && zip -qr "$GITHUB_WORKSPACE/VideoCallLive-PAYMENT-TEST-15-FINAL.zip" .)
+
+      - name: Commit patched source ZIP to feature branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add VideoCallLive-PAYMENT-TEST-15-FINAL.zip
+          if git diff --cached --quiet; then
+            echo "No source ZIP changes to commit."
+          else
+            git commit -m "Guard female coin shop and gate Creator approval"
+            git push origin "HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}"
+          fi
+
+      - name: Upload test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoCallLive-test-debug-APK
+          path: test-apk/VideoCallLive-test-debug.apk
+          if-no-files-found: error
+          retention-days: 14
