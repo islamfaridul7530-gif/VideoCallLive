@@ -33,7 +33,7 @@ jobs:
           set -euo pipefail
           mkdir -p extracted
           unzip -q "VideoCallLive-PAYMENT-TEST-15-FINAL.zip" -d extracted
-          PROJECT="$(find extracted -type f -name settings.gradle -printf '%h\\n' | head -n 1)"
+          PROJECT="$(find extracted -type f -name settings.gradle -printf '%h\n' | head -n 1)"
           test -n "$PROJECT"
           echo "Android project: $PROJECT"
           for FILE in \
