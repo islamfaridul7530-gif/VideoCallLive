@@ -1,0 +1,58 @@
+name: Inspect Android source and validate backend
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "functions/**"
+      - "*.zip"
+      - ".github/workflows/inspect-android-source.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Firebase Functions JavaScript
+        working-directory: functions
+        run: |
+          set -euo pipefail
+          node --check index.js
+          npm install --ignore-scripts
+          echo "Backend syntax check passed."
+
+      - name: Extract Android project and inspect account fields
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p extracted
+          unzip -q "VideoCallLive-PAYMENT-TEST-15-FINAL.zip" -d extracted
+          python3 - <<'PY'
+          import pathlib, re
+          root = pathlib.Path("extracted")
+          files = [p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in {".java", ".kt", ".xml", ".json", ".js", ".rules"}]
+          print(f"TEXT_SOURCE_FILE_COUNT={len(files)}")
+          patterns = re.compile(r"gender|female|male|creator|accountType|userType|role|quick.?login|coins?|withdraw|wallet|profile", re.I)
+          shown = 0
+          for p in files:
+              try:
+                  lines = p.read_text(encoding="utf-8", errors="ignore").splitlines()
+              except Exception:
+                  continue
+              matches = [(i, line.strip()) for i, line in enumerate(lines, 1) if patterns.search(line)]
+              if matches:
+                  print(f"\n--- {p} ---")
+                  for i, line in matches[:18]:
+                      print(f"{i}: {line[:260]}")
+                      shown += 1
+                      if shown >= 180:
+                          print("OUTPUT_LIMIT_REACHED")
+                          raise SystemExit(0)
+          print(f"TOTAL_MATCH_LINES_SHOWN={shown}")
+          PY
