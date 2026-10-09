@@ -33,26 +33,21 @@ jobs:
           set -euo pipefail
           mkdir -p extracted
           unzip -q "VideoCallLive-PAYMENT-TEST-15-FINAL.zip" -d extracted
-          python3 - <<'PY'
-          import pathlib, re
-          root = pathlib.Path("extracted")
-          files = [p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in {".java", ".kt", ".xml", ".json", ".js", ".rules"}]
-          print(f"TEXT_SOURCE_FILE_COUNT={len(files)}")
-          patterns = re.compile(r"gender|female|male|creator|accountType|userType|role|quick.?login|coins?|withdraw|wallet|profile", re.I)
-          shown = 0
-          for p in files:
-              try:
-                  lines = p.read_text(encoding="utf-8", errors="ignore").splitlines()
-              except Exception:
-                  continue
-              matches = [(i, line.strip()) for i, line in enumerate(lines, 1) if patterns.search(line)]
-              if matches:
-                  print(f"\n--- {p} ---")
-                  for i, line in matches[:18]:
-                      print(f"{i}: {line[:260]}")
-                      shown += 1
-                      if shown >= 180:
-                          print("OUTPUT_LIMIT_REACHED")
-                          raise SystemExit(0)
-          print(f"TOTAL_MATCH_LINES_SHOWN={shown}")
-          PY
+          PROJECT="$(find extracted -type f -name settings.gradle -printf '%h\\n' | head -n 1)"
+          test -n "$PROJECT"
+          echo "Android project: $PROJECT"
+          for FILE in \
+            app/src/main/java/com/videocalllive/app/FirebaseHelper.java \
+            app/src/main/java/com/videocalllive/app/GenderActivity.java \
+            app/src/main/java/com/videocalllive/app/TopUpActivity.java \
+            app/src/main/java/com/videocalllive/app/CreatorSetupActivity.java \
+            app/src/main/java/com/videocalllive/app/CreatorHomeActivity.java \
+            app/src/main/java/com/videocalllive/app/RealCallActivity.java \
+            app/src/main/java/com/videocalllive/app/MainActivity.java; do
+            if [ -f "$PROJECT/$FILE" ]; then
+              echo "===== SOURCE FILE: $FILE ====="
+              sed -n '1,240p' "$PROJECT/$FILE"
+            else
+              echo "===== MISSING SOURCE FILE: $FILE ====="
+            fi
+          done
