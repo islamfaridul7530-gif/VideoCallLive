@@ -573,7 +573,9 @@ exports.verifyCashfreePayment = onCall(
           const currentCoins =
             Number(
               userSnap.exists
-                ? userSnap.data().coins || 0
+                ? (userSnap.data().coinBalance ??
+                   userSnap.data().coins ??
+                   0)
                 : 0
             );
 
@@ -591,7 +593,10 @@ exports.verifyCashfreePayment = onCall(
             userRef,
 
             {
+              // Keep both names in sync: the Android Coins screen currently
+              // reads "coinBalance", while backend code historically used "coins".
               coins: newCoins,
+              coinBalance: newCoins,
 
               updatedAt:
                 admin.firestore.FieldValue
@@ -689,7 +694,7 @@ exports.getCoinBalance = onCall(
 
       coins: Number(
         snap.exists
-          ? snap.data().coins || 0
+          ? (snap.data().coinBalance ?? snap.data().coins ?? 0)
           : 0
       ),
     };
