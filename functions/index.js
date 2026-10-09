@@ -4,18 +4,60 @@ const {
   onRequest,
   HttpsError,
 } = require("firebase-functions/v2/https");
-const { defineSecret } = require("firebase-functions/params");
+const { defineSecret, defineString } = require("firebase-functions/params");
 
 admin.initializeApp();
 
 const db = admin.firestore();
 
+/*
+ * Read the persisted account profile. Quick Login users still have a Firebase
+ * UID; profile fields are read from Firestore rather than trusted from client
+ * request data.
+ */
+async function getAccountProfile(uid) {
+  const snap = await db.collection("users").doc(uid).get();
+  return snap.exists ? snap.data() : {};
+}
+
+/*
+ * Recognise the common role/gender field names used by app profile documents.
+ * The Android project inspection workflow will help confirm the exact schema.
+ */
+function isMaleAccount(profile = {}) {
+  const gender = String(profile.gender || "").trim().toLowerCase();
+  const roleValues = [
+    profile.role,
+    profile.accountType,
+    profile.accountRole,
+    profile.userType,
+  ].map((value) => String(value || "").trim().toLowerCase());
+
+  // Only an explicitly persisted Male profile may purchase. Unknown/missing
+  // gender is denied by default; a Female/Creator role always overrides.
+  if (gender !== "male") return false;
+  if (roleValues.some((value) => ["female", "woman", "creator"].includes(value))) {
+    return false;
+  }
+  return true;
+}
+
 const CASHFREE_APP_ID = defineSecret("CASHFREE_APP_ID");
 const CASHFREE_SECRET_KEY = defineSecret("CASHFREE_SECRET_KEY");
 
-const CASHFREE_BASE_URL = "https://sandbox.cashfree.com";
+const CASHFREE_ENVIRONMENT = defineString("CASHFREE_ENVIRONMENT", { default: "sandbox" });
 const CASHFREE_API_VERSION = "2025-01-01";
 
+function getCashfreeEnvironment() {
+  const value = String(CASHFREE_ENVIRONMENT.value() || "sandbox").trim().toLowerCase();
+  return value === "production" ? "production" : "sandbox";
+}
+
+function getCashfreeBaseUrl() {
+  return getCashfreeEnvironment() === "production"
+    ? "https://api.cashfree.com"
+    : "https://sandbox.cashfree.com";
+}
 /*
  * Coin packages
  *
@@ -168,14 +210,34 @@ exports.createCashfreeOrder = onCall(
       );
     }
 
+    const environment = getCashfreeEnvironment();
+    if (environment === "production" && pack.test) {
+      throw new HttpsError(
+        "failed-precondition",
+        "The ₹15 test package is disabled for real payments. Please choose a regular coin package."
+      );
+    }
+
     const uid = request.auth.uid;
 
-    const phone = getCustomerPhone(request);
+    // Never allow a Female/Creator account to purchase coins.
+    // The role is read from Firestore, not trusted from client request data.
+    const accountProfile = await getAccountProfile(uid);
+    if (!isMaleAccount(accountProfile)) {
+      throw new HttpsError(
+        "permission-denied",
+        "Coin purchases are available only to verified Male account profiles."
+      );
+    }
 
+    // A Quick Login user does not need to log in again with a phone.
+    // Cashfree still requires customer phone details for checkout, so accept
+    // a phone supplied for checkout or one already attached to Firebase Auth.
+    const phone = getCustomerPhone(request);
     if (!phone) {
       throw new HttpsError(
         "invalid-argument",
-        "Valid 10 digit phone number required."
+        "Enter a valid 10-digit phone number for payment checkout. This does not change your app login or account ID."
       );
     }
 
@@ -208,7 +270,7 @@ exports.createCashfreeOrder = onCall(
 
       status: "CREATED",
 
-      environment: "sandbox",
+      environment: environment,
 
       createdAt:
         admin.firestore.FieldValue.serverTimestamp(),
@@ -217,7 +279,7 @@ exports.createCashfreeOrder = onCall(
     try {
 
       const response = await fetch(
-        CASHFREE_BASE_URL + "/pg/orders",
+        getCashfreeBaseUrl() + "/pg/orders",
         {
           method: "POST",
 
@@ -395,6 +457,15 @@ exports.verifyCashfreePayment = onCall(
       );
     }
 
+    // Re-check account role at verification time as well.
+    const accountProfile = await getAccountProfile(request.auth.uid);
+    if (!isMaleAccount(accountProfile)) {
+      throw new HttpsError(
+        "permission-denied",
+        "Only Male account profiles can receive purchased coins."
+      );
+    }
+
     if (order.status === "PAID") {
 
       return {
@@ -415,7 +486,7 @@ exports.verifyCashfreePayment = onCall(
 
       const response = await fetch(
 
-        CASHFREE_BASE_URL +
+        getCashfreeBaseUrl() +
           "/pg/orders/" +
           encodeURIComponent(orderId) +
           "/payments",
@@ -450,8 +521,9 @@ exports.verifyCashfreePayment = onCall(
       const successfulPayment =
         payments.find(
           (payment) =>
-            payment.payment_status ===
-            "SUCCESS"
+            payment.payment_status === "SUCCESS" &&
+            Number(payment.payment_amount) === Number(order.amount) &&
+            String(payment.payment_currency || "INR").toUpperCase() === "INR"
         );
 
       if (!successfulPayment) {
@@ -525,7 +597,9 @@ exports.verifyCashfreePayment = onCall(
           const currentCoins =
             Number(
               userSnap.exists
-                ? userSnap.data().coins || 0
+                ? (userSnap.data().coinBalance ??
+                   userSnap.data().coins ??
+                   0)
                 : 0
             );
 
@@ -543,7 +617,10 @@ exports.verifyCashfreePayment = onCall(
             userRef,
 
             {
+              // Keep both names in sync: the Android Coins screen currently
+              // reads "coinBalance", while backend code historically used "coins".
               coins: newCoins,
+              coinBalance: newCoins,
 
               updatedAt:
                 admin.firestore.FieldValue
@@ -641,7 +718,7 @@ exports.getCoinBalance = onCall(
 
       coins: Number(
         snap.exists
-          ? snap.data().coins || 0
+          ? (snap.data().coinBalance ?? snap.data().coins ?? 0)
           : 0
       ),
     };

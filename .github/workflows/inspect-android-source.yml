@@ -1,0 +1,53 @@
+name: Inspect Android source and validate backend
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "functions/**"
+      - "*.zip"
+      - ".github/workflows/inspect-android-source.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Firebase Functions JavaScript
+        working-directory: functions
+        run: |
+          set -euo pipefail
+          node --check index.js
+          npm install --ignore-scripts
+          echo "Backend syntax check passed."
+
+      - name: Extract Android project and inspect account fields
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p extracted
+          unzip -q "VideoCallLive-PAYMENT-TEST-15-FINAL.zip" -d extracted
+          PROJECT="$(find extracted -type f -name settings.gradle -printf '%h\n' | head -n 1)"
+          test -n "$PROJECT"
+          echo "Android project: $PROJECT"
+          for FILE in \
+            app/src/main/java/com/videocalllive/app/FirebaseHelper.java \
+            app/src/main/java/com/videocalllive/app/GenderActivity.java \
+            app/src/main/java/com/videocalllive/app/TopUpActivity.java \
+            app/src/main/java/com/videocalllive/app/CreatorSetupActivity.java \
+            app/src/main/java/com/videocalllive/app/CreatorHomeActivity.java \
+            app/src/main/java/com/videocalllive/app/RealCallActivity.java \
+            app/src/main/java/com/videocalllive/app/MainActivity.java; do
+            if [ -f "$PROJECT/$FILE" ]; then
+              echo "===== SOURCE FILE: $FILE ====="
+              sed -n '1,240p' "$PROJECT/$FILE"
+            else
+              echo "===== MISSING SOURCE FILE: $FILE ====="
+            fi
+          done
