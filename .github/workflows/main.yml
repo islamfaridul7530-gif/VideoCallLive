@@ -5,6 +5,9 @@ on:
     branches:
       - main
       - fix/payment-coin-balance
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
