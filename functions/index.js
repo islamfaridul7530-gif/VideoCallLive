@@ -29,6 +29,7 @@ function isFemaleAccount(profile = {}) {
     profile.gender,
     profile.role,
     profile.accountType,
+    profile.accountRole,
     profile.userType,
   ];
   return values.some((value) => {
