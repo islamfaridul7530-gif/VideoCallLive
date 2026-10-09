@@ -13,7 +13,17 @@ const db = admin.firestore();
 const CASHFREE_APP_ID = defineSecret("CASHFREE_APP_ID");
 const CASHFREE_SECRET_KEY = defineSecret("CASHFREE_SECRET_KEY");
 
-const CASHFREE_BASE_URL = "https://sandbox.cashfree.com";
+const CASHFREE_ENVIRONMENT = defineString("CASHFREE_ENVIRONMENT", { default: "sandbox" });
+const CASHFREE_MODE = String(CASHFREE_ENVIRONMENT.value() || "sandbox").trim().toLowerCase();
+
+if (!["sandbox", "live"].includes(CASHFREE_MODE)) {
+  throw new Error('CASHFREE_ENVIRONMENT must be either "sandbox" or "live".');
+}
+
+const CASHFREE_BASE_URL =
+  CASHFREE_MODE === "live"
+    ? "https://api.cashfree.com"
+    : "https://sandbox.cashfree.com";
 const CASHFREE_API_VERSION = "2025-01-01";
 
 /*
@@ -208,7 +218,7 @@ exports.createCashfreeOrder = onCall(
 
       status: "CREATED",
 
-      environment: "sandbox",
+      environment: CASHFREE_MODE,
 
       createdAt:
         admin.firestore.FieldValue.serverTimestamp(),
