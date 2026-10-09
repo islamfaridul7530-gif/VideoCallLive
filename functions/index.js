@@ -10,6 +10,33 @@ admin.initializeApp();
 
 const db = admin.firestore();
 
+/*
+ * Read the persisted account profile. Quick Login users still have a Firebase
+ * UID; profile fields are read from Firestore rather than trusted from client
+ * request data.
+ */
+async function getAccountProfile(uid) {
+  const snap = await db.collection("users").doc(uid).get();
+  return snap.exists ? snap.data() : {};
+}
+
+/*
+ * Recognise the common role/gender field names used by app profile documents.
+ * The Android project inspection workflow will help confirm the exact schema.
+ */
+function isFemaleAccount(profile = {}) {
+  const values = [
+    profile.gender,
+    profile.role,
+    profile.accountType,
+    profile.userType,
+  ];
+  return values.some((value) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    return ["female", "woman", "creator"].includes(normalized);
+  });
+}
+
 const CASHFREE_APP_ID = defineSecret("CASHFREE_APP_ID");
 const CASHFREE_SECRET_KEY = defineSecret("CASHFREE_SECRET_KEY");
 
