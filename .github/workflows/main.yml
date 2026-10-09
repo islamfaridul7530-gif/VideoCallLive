@@ -51,6 +51,12 @@ jobs:
           echo "Project found at: $PROJECT_DIR"
           ls -la "$PROJECT_DIR"
 
+      - name: Patch Android coin balance and remove ₹15 test pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_android_coin_balance.py "$PROJECT_DIR"
+
       - name: Inspect Android payment and coin-balance flow
         shell: bash
         run: |
