@@ -4,7 +4,7 @@ const {
   onRequest,
   HttpsError,
 } = require("firebase-functions/v2/https");
-const { defineSecret } = require("firebase-functions/params");
+const { defineSecret, defineString } = require("firebase-functions/params");
 
 admin.initializeApp();
 
@@ -45,9 +45,19 @@ function isMaleAccount(profile = {}) {
 const CASHFREE_APP_ID = defineSecret("CASHFREE_APP_ID");
 const CASHFREE_SECRET_KEY = defineSecret("CASHFREE_SECRET_KEY");
 
-const CASHFREE_BASE_URL = "https://sandbox.cashfree.com";
+const CASHFREE_ENVIRONMENT = defineString("CASHFREE_ENVIRONMENT", { default: "sandbox" });
 const CASHFREE_API_VERSION = "2025-01-01";
 
+function getCashfreeEnvironment() {
+  const value = String(CASHFREE_ENVIRONMENT.value() || "sandbox").trim().toLowerCase();
+  return value === "production" ? "production" : "sandbox";
+}
+
+function getCashfreeBaseUrl() {
+  return getCashfreeEnvironment() === "production"
+    ? "https://api.cashfree.com"
+    : "https://sandbox.cashfree.com";
+}
 /*
  * Coin packages
  *
@@ -200,6 +210,14 @@ exports.createCashfreeOrder = onCall(
       );
     }
 
+    const environment = getCashfreeEnvironment();
+    if (environment === "production" && pack.test) {
+      throw new HttpsError(
+        "failed-precondition",
+        "The ₹15 test package is disabled for real payments. Please choose a regular coin package."
+      );
+    }
+
     const uid = request.auth.uid;
 
     // Never allow a Female/Creator account to purchase coins.
@@ -252,7 +270,7 @@ exports.createCashfreeOrder = onCall(
 
       status: "CREATED",
 
-      environment: "sandbox",
+      environment: environment,
 
       createdAt:
         admin.firestore.FieldValue.serverTimestamp(),
@@ -261,7 +279,7 @@ exports.createCashfreeOrder = onCall(
     try {
 
       const response = await fetch(
-        CASHFREE_BASE_URL + "/pg/orders",
+        getCashfreeBaseUrl() + "/pg/orders",
         {
           method: "POST",
 
@@ -468,7 +486,7 @@ exports.verifyCashfreePayment = onCall(
 
       const response = await fetch(
 
-        CASHFREE_BASE_URL +
+        getCashfreeBaseUrl() +
           "/pg/orders/" +
           encodeURIComponent(orderId) +
           "/payments",
@@ -503,8 +521,9 @@ exports.verifyCashfreePayment = onCall(
       const successfulPayment =
         payments.find(
           (payment) =>
-            payment.payment_status ===
-            "SUCCESS"
+            payment.payment_status === "SUCCESS" &&
+            Number(payment.payment_amount) === Number(order.amount) &&
+            String(payment.payment_currency || "INR").toUpperCase() === "INR"
         );
 
       if (!successfulPayment) {
