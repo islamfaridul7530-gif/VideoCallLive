@@ -28,6 +28,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
       - name: Extract and patch Android source
         run: |
           set -euo pipefail
@@ -43,9 +48,8 @@ jobs:
         run: |
           set -euo pipefail
           PROJECT="$(cat /tmp/android-project-path)"
-          chmod +x "$PROJECT/gradlew"
           cd "$PROJECT"
-          ./gradlew --no-daemon assembleDebug
+          gradle --no-daemon assembleDebug
           mkdir -p "$GITHUB_WORKSPACE/test-apk"
           cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/test-apk/VideoCallLive-test-debug.apk"
 
