@@ -170,12 +170,24 @@ exports.createCashfreeOrder = onCall(
 
     const uid = request.auth.uid;
 
-    const phone = getCustomerPhone(request);
+    // Never allow a Female/Creator account to purchase coins.
+    // The role is read from Firestore, not trusted from client request data.
+    const accountProfile = await getAccountProfile(uid);
+    if (isFemaleAccount(accountProfile)) {
+      throw new HttpsError(
+        "permission-denied",
+        "Coin purchases are available only to Male accounts."
+      );
+    }
 
+    // A Quick Login user does not need to log in again with a phone.
+    // Cashfree still requires customer phone details for checkout, so accept
+    // a phone supplied for checkout or one already attached to Firebase Auth.
+    const phone = getCustomerPhone(request);
     if (!phone) {
       throw new HttpsError(
         "invalid-argument",
-        "Valid 10 digit phone number required."
+        "Enter a valid 10-digit phone number for payment checkout. This does not change your app login or account ID."
       );
     }
 
@@ -392,6 +404,15 @@ exports.verifyCashfreePayment = onCall(
       throw new HttpsError(
         "permission-denied",
         "This payment order belongs to another user."
+      );
+    }
+
+    // Re-check account role at verification time as well.
+    const accountProfile = await getAccountProfile(request.auth.uid);
+    if (isFemaleAccount(accountProfile)) {
+      throw new HttpsError(
+        "permission-denied",
+        "Female accounts cannot receive purchased coins."
       );
     }
 
