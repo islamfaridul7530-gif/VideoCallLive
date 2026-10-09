@@ -24,18 +24,22 @@ async function getAccountProfile(uid) {
  * Recognise the common role/gender field names used by app profile documents.
  * The Android project inspection workflow will help confirm the exact schema.
  */
-function isFemaleAccount(profile = {}) {
-  const values = [
-    profile.gender,
+function isMaleAccount(profile = {}) {
+  const gender = String(profile.gender || "").trim().toLowerCase();
+  const roleValues = [
     profile.role,
     profile.accountType,
     profile.accountRole,
     profile.userType,
-  ];
-  return values.some((value) => {
-    const normalized = String(value || "").trim().toLowerCase();
-    return ["female", "woman", "creator"].includes(normalized);
-  });
+  ].map((value) => String(value || "").trim().toLowerCase());
+
+  // Only an explicitly persisted Male profile may purchase. Unknown/missing
+  // gender is denied by default; a Female/Creator role always overrides.
+  if (gender !== "male") return false;
+  if (roleValues.some((value) => ["female", "woman", "creator"].includes(value))) {
+    return false;
+  }
+  return true;
 }
 
 const CASHFREE_APP_ID = defineSecret("CASHFREE_APP_ID");
@@ -201,10 +205,10 @@ exports.createCashfreeOrder = onCall(
     // Never allow a Female/Creator account to purchase coins.
     // The role is read from Firestore, not trusted from client request data.
     const accountProfile = await getAccountProfile(uid);
-    if (isFemaleAccount(accountProfile)) {
+    if (!isMaleAccount(accountProfile)) {
       throw new HttpsError(
         "permission-denied",
-        "Coin purchases are available only to Male accounts."
+        "Coin purchases are available only to verified Male account profiles."
       );
     }
 
@@ -437,10 +441,10 @@ exports.verifyCashfreePayment = onCall(
 
     // Re-check account role at verification time as well.
     const accountProfile = await getAccountProfile(request.auth.uid);
-    if (isFemaleAccount(accountProfile)) {
+    if (!isMaleAccount(accountProfile)) {
       throw new HttpsError(
         "permission-denied",
-        "Female accounts cannot receive purchased coins."
+        "Only Male account profiles can receive purchased coins."
       );
     }
 
