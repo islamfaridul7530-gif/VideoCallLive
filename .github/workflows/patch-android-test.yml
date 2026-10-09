@@ -53,26 +53,8 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/test-apk"
           cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/test-apk/VideoCallLive-test-debug.apk"
 
-      - name: Repackage patched source ZIP
-        run: |
-          set -euo pipefail
-          rm -f VideoCallLive-PAYMENT-TEST-15-FINAL.zip
-          (cd android-work && zip -qr "$GITHUB_WORKSPACE/VideoCallLive-PAYMENT-TEST-15-FINAL.zip" .)
-
-      - name: Commit patched source ZIP to feature branch
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add VideoCallLive-PAYMENT-TEST-15-FINAL.zip
-          if git diff --cached --quiet; then
-            echo "No source ZIP changes to commit."
-          else
-            git commit -m "Guard female coin shop and gate Creator approval"
-            git push origin "HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}"
-          fi
-
       - name: Upload test APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: VideoCallLive-test-debug-APK
