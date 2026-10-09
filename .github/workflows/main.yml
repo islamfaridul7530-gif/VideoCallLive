@@ -6,7 +6,7 @@ on:
       - main
       - fix/payment-coin-balance
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, reopened, ready_for_review]
     branches:
       - main
   workflow_dispatch:
@@ -58,7 +58,7 @@ jobs:
           echo "=== Android source files ==="
           find "$PROJECT_DIR/app/src" -type f \( -name '*.kt' -o -name '*.java' -o -name '*.xml' \) | sort | grep -Ei 'coin|payment|wallet|profile|home|firebase|main|activity|fragment' | head -120 || true
           echo "=== Payment/balance references ==="
-          rg -n -C 4 'createCashfreeOrder|verifyCashfreePayment|getCoinBalance|paymentSessionId|coinBalance|CoinBalance|coins|Cashfree|Payment' "$PROJECT_DIR/app/src" --glob '*.kt' --glob '*.java' --glob '*.xml' | head -650 || true
+          grep -RniE -C 4 'createCashfreeOrder|verifyCashfreePayment|getCoinBalance|paymentSessionId|coinBalance|CoinBalance|coins|Cashfree|Payment' "$PROJECT_DIR/app/src" --include='*.kt' --include='*.java' --include='*.xml' | head -650 || true
 
       - name: Build release APK
         shell: bash
