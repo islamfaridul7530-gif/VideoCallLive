@@ -4,7 +4,7 @@ const {
   onRequest,
   HttpsError,
 } = require("firebase-functions/v2/https");
-const { defineSecret } = require("firebase-functions/params");
+const { defineSecret, defineString } = require("firebase-functions/params");
 
 admin.initializeApp();
 
