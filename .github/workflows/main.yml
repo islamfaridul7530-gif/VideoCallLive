@@ -55,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "=== Android source files ==="
-          find "$PROJECT_DIR/app/src" -type f \\( -name '*.kt' -o -name '*.java' -o -name '*.xml' \\) | sort | grep -Ei 'coin|payment|wallet|profile|home|firebase|main|activity|fragment' | head -120 || true
+          find "$PROJECT_DIR/app/src" -type f \( -name '*.kt' -o -name '*.java' -o -name '*.xml' \) | sort | grep -Ei 'coin|payment|wallet|profile|home|firebase|main|activity|fragment' | head -120 || true
           echo "=== Payment/balance references ==="
           rg -n -C 4 'createCashfreeOrder|verifyCashfreePayment|getCoinBalance|paymentSessionId|coinBalance|CoinBalance|coins|Cashfree|Payment' "$PROJECT_DIR/app/src" --glob '*.kt' --glob '*.java' --glob '*.xml' | head -650 || true
 
