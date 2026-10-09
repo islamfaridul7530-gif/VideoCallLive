@@ -29,8 +29,6 @@ const CASHFREE_API_VERSION = "2025-01-01";
 /*
  * Coin packages
  *
- * ₹15 = temporary TEST package.
- *
  * Normal packages:
  * ₹100  = 100 Coins
  * ₹200  = 220 Coins
@@ -39,12 +37,6 @@ const CASHFREE_API_VERSION = "2025-01-01";
  */
 
 const COIN_PACKS = {
-  "test_15": {
-    amount: 15,
-    coins: 300,
-    test: true,
-  },
-
   "pack_100": {
     amount: 100,
     coins: 100,
