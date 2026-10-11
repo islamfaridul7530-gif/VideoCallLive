@@ -43,6 +43,11 @@ jobs:
             app/src/main/java/com/videocalllive/app/CreatorSetupActivity.java \
             app/src/main/java/com/videocalllive/app/CreatorHomeActivity.java \
             app/src/main/java/com/videocalllive/app/RealCallActivity.java \
+            app/src/main/java/com/videocalllive/app/HomeActivity.java \
+            app/src/main/java/com/videocalllive/app/IncomingCallActivity.java \
+            app/src/main/java/com/videocalllive/app/CallActivity.java \
+            app/src/main/java/com/videocalllive/app/CallNotificationService.java \
+            app/src/main/java/com/videocalllive/app/FirebaseMessagingService.java \
             app/src/main/java/com/videocalllive/app/MainActivity.java; do
             if [ -f "$PROJECT/$FILE" ]; then
               echo "===== SOURCE FILE: $FILE ====="
