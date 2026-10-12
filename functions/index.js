@@ -85,7 +85,7 @@ const COIN_PACKS = {
 
   "pack_200": {
     amount: 200,
-    coins: 220,
+    coins: 200,
     test: false,
   },
 
