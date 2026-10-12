@@ -153,6 +153,15 @@ public class CreatorHomeActivity extends Activity{
 print("CreatorHomeActivity now gates paid features on server status and face verification.")
 
 
+# Keep the Android price label aligned with the authoritative backend package.
+replace_once(
+    "TopUpActivity.java",
+    '''addPack(r,"₹200  •  220 Coins  •  +10% Bonus", "pack_200", false);''',
+    '''addPack(r,"₹200  •  200 Coins", "pack_200", false);''',
+    "align ₹200 coin pack label with backend"
+)
+
+
 # Redesign the incoming-call sheet while preserving Firestore call transitions and intents.
 replace_once(
     "HomeActivity.java",
