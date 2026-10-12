@@ -1,6 +1,12 @@
 name: Deploy Firebase Functions
 
 on:
+  push:
+    branches: [feature/quick-login-coins-withdrawal]
+    paths:
+      - "functions/index.js"
+      - "functions/package.json"
+      - ".github/workflows/deploy-functions.yml"
   workflow_dispatch:
 
 jobs:
