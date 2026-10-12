@@ -54,7 +54,7 @@ jobs:
           src = p.read_text()
           # Only adjust the return destination and clarify the pending/verification status UI.
           src = src.replace('Button home=Ui.secondary(this,"Back to Home");', 'Button home=Ui.secondary(this,"Back to My Profile");')
-          src = src.replace('home.setOnClickListener(v->{startActivity(new Intent(this,HomeActivity.class));finish();});', 'home.setOnClickListener(v->{startActivity(new Intent(this,ProfileActivity.class));finish();});')
+          src = src.replace('home.setOnClickListener(v->{startActivity(new Intent(this,HomeActivity.class));finish();});', 'home.setOnClickListener(v->{startActivity(new Intent(this,HomeActivity.class));finish();});')
           src = src.replace('String a=approved?"Approval: approved":"Approval: pending";', 'String a=approved?"Approval: approved":"Application status: pending review";')
           src = src.replace('String f=verified?"Face verification: verified":"Face verification: required";', 'String f=verified?"Face verification: verified":"Face verification: not yet verified";')
           src = src.replace('status.setText("Creator application\\n"+a+"\\n"+f+"\\nPaid calls, earnings and withdrawal remain locked until both checks are complete.");', 'status.setText("CREATOR APPLICATION STATUS\\n\\n"+a+"\\n"+f+"\\n\\nNext step: wait for Admin review and complete face verification if requested.\\n\\nPaid calls, earnings and withdrawal remain locked until approval and verification are complete.");')
