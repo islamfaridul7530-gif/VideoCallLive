@@ -70,7 +70,7 @@ jobs:
           PROJECT="$(cat /tmp/android-project-path)"
           cd "$PROJECT"
           gradle --no-daemon assembleDebug
-          APK="$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
+          APK="$GITHUB_WORKSPACE/$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
           mkdir -p "$GITHUB_WORKSPACE/test-apk"
           cp "$APK" "$GITHUB_WORKSPACE/test-apk/VideoCallLive-test-debug.apk"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
