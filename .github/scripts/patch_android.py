@@ -178,3 +178,5 @@ replace_once(
     '''ProfileImages.load(photo,ph,n);ProfileImages.load(backgroundPhoto,ph,n);});''',
     "sync incoming caller image to full-screen background"
 )
+
+# Incoming-call design requirement: full-screen caller photo with a small round avatar.
