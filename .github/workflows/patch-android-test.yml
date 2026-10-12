@@ -1,4 +1,4 @@
-name: Patch Android account rules and build test APK
+name: Patch Android account rules and build signed APK
 
 on:
   pull_request:
@@ -44,47 +44,59 @@ jobs:
           python3 .github/scripts/patch_android.py "$PROJECT"
           echo "$PROJECT" > /tmp/android-project-path
 
-      # Reuse the same Android debug signing key across builds. Without this,
-      # GitHub-hosted runners generate a new key each run and APK updates fail.
-      - name: Restore stable Android debug signing key
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: videocalllive-android-debug-keystore-v1
-
-      - name: Ensure debug signing key exists
-        run: |
-          set -euo pipefail
-          mkdir -p "$HOME/.android"
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair -v \
-              -keystore "$HOME/.android/debug.keystore" \
-              -storepass android -alias androiddebugkey \
-              -keypass android -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
-
-      - name: Build debug APK and report package/signature
+      - name: Build release APK
         run: |
           set -euo pipefail
           PROJECT="$(cat /tmp/android-project-path)"
           cd "$PROJECT"
-          gradle --no-daemon assembleDebug
-          APK="$GITHUB_WORKSPACE/$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
-          mkdir -p "$GITHUB_WORKSPACE/test-apk"
-          cp "$APK" "$GITHUB_WORKSPACE/test-apk/VideoCallLive-test-debug.apk"
-          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)"
-          AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -n 1)"
-          echo "=== APK package/version ==="
-          "$AAPT" dump badging "$APK" | head -n 1
-          echo "=== APK signing certificate ==="
-          "$APKSIGNER" verify --print-certs "$APK"
+          gradle --no-daemon clean assembleRelease
+          APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          echo "UNSIGNED_APK=$GITHUB_WORKSPACE/$APK" >> "$GITHUB_ENV"
 
-      - name: Upload test APK
-        if: always()
+      - name: Restore release signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+
+      - name: Align and sign APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
+
+          BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          mkdir -p "$GITHUB_WORKSPACE/signed"
+
+          "$BUILD_TOOLS_DIR/zipalign" -f -p 4             "$UNSIGNED_APK"             "$GITHUB_WORKSPACE/signed/VideoCallLive-V44-aligned.apk"
+
+          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out "$GITHUB_WORKSPACE/signed/VideoCallLive-V44.apk"             "$GITHUB_WORKSPACE/signed/VideoCallLive-V44-aligned.apk"
+
+      - name: Verify package, version and signing certificate
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          AAPT="$BUILD_TOOLS_DIR/aapt"
+          APKSIGNER="$BUILD_TOOLS_DIR/apksigner"
+
+          echo "=== APK package/version ==="
+          "$AAPT" dump badging "$GITHUB_WORKSPACE/signed/VideoCallLive-V44.apk" | head -n 1
+
+          echo "=== APK signing certificate ==="
+          "$APKSIGNER" verify --verbose --print-certs "$GITHUB_WORKSPACE/signed/VideoCallLive-V44.apk"
+
+      - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-test-debug-APK
-          path: test-apk/VideoCallLive-test-debug.apk
+          name: VideoCallLive-V44-SIGNED-APK
+          path: signed/VideoCallLive-V44.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
