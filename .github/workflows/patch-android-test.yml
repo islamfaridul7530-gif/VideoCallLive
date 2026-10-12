@@ -42,6 +42,21 @@ jobs:
           PROJECT="$(find android-work -type f -name settings.gradle -printf '%h\n' | head -n 1)"
           test -n "$PROJECT"
           python3 .github/scripts/patch_android.py "$PROJECT"
+          export PROJECT
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path(os.environ["PROJECT"]) / "app/src/main/java/com/videocalllive/app/CreatorHomeActivity.java"
+          src = p.read_text()
+          # Only adjust the return destination and clarify the pending/verification status UI.
+          src = src.replace('Button home=Ui.secondary(this,"Back to Home");', 'Button home=Ui.secondary(this,"Back to My Profile");')
+          src = src.replace('home.setOnClickListener(v->{startActivity(new Intent(this,HomeActivity.class));finish();});', 'home.setOnClickListener(v->{startActivity(new Intent(this,ProfileActivity.class));finish();});')
+          src = src.replace('String a=approved?"Approval: approved":"Approval: pending";', 'String a=approved?"Approval: approved":"Application status: pending review";')
+          src = src.replace('String f=verified?"Face verification: verified":"Face verification: required";', 'String f=verified?"Face verification: verified":"Face verification: not yet verified";')
+          src = src.replace('status.setText("Creator application\\n"+a+"\\n"+f+"\\nPaid calls, earnings and withdrawal remain locked until both checks are complete.");', 'status.setText("CREATOR APPLICATION STATUS\\n\\n"+a+"\\n"+f+"\\n\\nNext step: wait for Admin review and complete face verification if requested.\\n\\nPaid calls, earnings and withdrawal remain locked until approval and verification are complete.");')
+          p.write_text(src)
+          print("Updated Creator Application pending status screen and return navigation only.")
+          PY
           echo "$PROJECT" > /tmp/android-project-path
 
       - name: Build release APK
@@ -72,26 +87,19 @@ jobs:
           test -n "$KEYSTORE_PASSWORD"
           test -n "$KEY_ALIAS"
           test -n "$KEY_PASSWORD"
-
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
           mkdir -p "$GITHUB_WORKSPACE/signed"
-
-          "$BUILD_TOOLS_DIR/zipalign" -f -p 4             "$UNSIGNED_APK"             "$GITHUB_WORKSPACE/signed/VideoCallLive-V44-aligned.apk"
-
-          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out "$GITHUB_WORKSPACE/signed/VideoCallLive-V44.apk"             "$GITHUB_WORKSPACE/signed/VideoCallLive-V44-aligned.apk"
+          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" "$GITHUB_WORKSPACE/signed/VideoCallLive-V44-aligned.apk"
+          "$BUILD_TOOLS_DIR/apksigner" sign --ks "$RUNNER_TEMP/release.keystore" --ks-pass "pass:$KEYSTORE_PASSWORD" --ks-key-alias "$KEY_ALIAS" --key-pass "pass:$KEY_PASSWORD" --out "$GITHUB_WORKSPACE/signed/VideoCallLive-V44.apk" "$GITHUB_WORKSPACE/signed/VideoCallLive-V44-aligned.apk"
 
       - name: Verify package, version and signing certificate
         run: |
           set -euo pipefail
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          AAPT="$BUILD_TOOLS_DIR/aapt"
-          APKSIGNER="$BUILD_TOOLS_DIR/apksigner"
-
           echo "=== APK package/version ==="
-          "$AAPT" dump badging "$GITHUB_WORKSPACE/signed/VideoCallLive-V44.apk" | head -n 1
-
+          "$BUILD_TOOLS_DIR/aapt" dump badging "$GITHUB_WORKSPACE/signed/VideoCallLive-V44.apk" | head -n 1
           echo "=== APK signing certificate ==="
-          "$APKSIGNER" verify --verbose --print-certs "$GITHUB_WORKSPACE/signed/VideoCallLive-V44.apk"
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose --print-certs "$GITHUB_WORKSPACE/signed/VideoCallLive-V44.apk"
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
