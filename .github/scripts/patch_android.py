@@ -171,3 +171,10 @@ replace_once(
   Button decline=Ui.secondary(this,"✕  DECLINE");Button accept=Ui.button(this,"●  ACCEPT");decline.setTextColor(Color.WHITE);accept.setTextColor(Color.WHITE);decline.setTextSize(14);accept.setTextSize(14);decline.setAllCaps(false);accept.setAllCaps(false);decline.setBackground(Ui.bg(Color.rgb(198,49,70),Ui.dp(this,34)));accept.setBackground(Ui.bg(Color.rgb(25,166,99),Ui.dp(this,34)));LinearLayout.LayoutParams dl=new LinearLayout.LayoutParams(0,-1,1);dl.setMargins(0,0,Ui.dp(this,8),0);LinearLayout.LayoutParams al=new LinearLayout.LayoutParams(0,-1,1);al.setMargins(Ui.dp(this,8),0,0,0);actions.addView(decline,dl);actions.addView(accept,al);''',
     "incoming call screen visual redesign"
 )
+
+replace_once(
+    "HomeActivity.java",
+    '''ProfileImages.load(photo,ph,n);});''',
+    '''ProfileImages.load(photo,ph,n);ProfileImages.load(backgroundPhoto,ph,n);});''',
+    "sync incoming caller image to full-screen background"
+)
