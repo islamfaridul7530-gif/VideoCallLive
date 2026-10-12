@@ -1,6 +1,10 @@
 name: Patch Android account rules and build signed APK
 
 on:
+  push:
+    branches: [feature/quick-login-coins-withdrawal]
+    paths:
+      - ".github/workflows/patch-android-test.yml"
   pull_request:
     branches: [main]
     paths:
