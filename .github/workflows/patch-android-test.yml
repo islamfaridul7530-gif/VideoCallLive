@@ -52,7 +52,7 @@ jobs:
           gradle --no-daemon clean assembleRelease
           APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
           test -n "$APK"
-          echo "UNSIGNED_APK=$GITHUB_WORKSPACE/$APK" >> "$GITHUB_ENV"
+          echo "UNSIGNED_APK=$GITHUB_WORKSPACE/$PROJECT/$APK" >> "$GITHUB_ENV"
 
       - name: Restore release signing keystore
         env:
