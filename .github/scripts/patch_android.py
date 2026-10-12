@@ -153,23 +153,29 @@ public class CreatorHomeActivity extends Activity{
 print("CreatorHomeActivity now gates paid features on server status and face verification.")
 
 
-# Redesign the incoming-call sheet while preserving the existing Firestore call
-# state transitions and accept/decline intents.
+# Redesign the incoming-call sheet while preserving Firestore call transitions and intents.
 replace_once(
     "HomeActivity.java",
+    '''  LinearLayout panel=new LinearLayout(this);panel.setOrientation(1);panel.setGravity(Gravity.CENTER);panel.setPadding(Ui.dp(this,24),Ui.dp(this,65),Ui.dp(this,24),Ui.dp(this,35));panel.setBackgroundColor(Color.rgb(15,13,35));
+  TextView top=label("INCOMING VIDEO CALL",15,Color.rgb(188,158,255));top.setGravity(Gravity.CENTER);panel.addView(top);
+  ImageView photo=ProfileImages.avatar(this,null,callerName==null?"User":callerName);LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(Ui.dp(this,200),Ui.dp(this,230));pp.setMargins(0,Ui.dp(this,32),0,Ui.dp(this,18));panel.addView(photo,pp);
+  TextView info=label(callerName==null?"User":callerName,26,Color.WHITE);info.setGravity(Gravity.CENTER);panel.addView(info);
+  TextView country=label("Loading caller details…",16,Color.WHITE);country.setGravity(Gravity.CENTER);panel.addView(country);
+  panel.addView(label("● Incoming call",15,Color.rgb(70,220,130)));
+  LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,Ui.dp(this,75));ap.topMargin=Ui.dp(this,50);panel.addView(actions,ap);
+  Button decline=Ui.secondary(this,"DECLINE");Button accept=Ui.button(this,"ACCEPT");decline.setTextColor(Color.WHITE);accept.setTextColor(Color.WHITE);decline.setTextSize(16);accept.setTextSize(16);decline.setAllCaps(false);accept.setAllCaps(false);actions.addView(decline,new LinearLayout.LayoutParams(0,-1,1));actions.addView(accept,new LinearLayout.LayoutParams(0,-1,1));
+  dialog.setContentView(panel);if(dialog.getWindow()!=null)dialog.getWindow().setLayout(-1,-1);''',
     '''  FrameLayout panel=new FrameLayout(this);
   ImageView backgroundPhoto=ProfileImages.avatar(this,null,callerName==null?"User":callerName);backgroundPhoto.setScaleType(ImageView.ScaleType.CENTER_CROP);panel.addView(backgroundPhoto,new FrameLayout.LayoutParams(-1,-1));
-  View shade=new View(this);shade.setBackgroundColor(0x99050916);panel.addView(shade,new FrameLayout.LayoutParams(-1,-1));
-  LinearLayout content=new LinearLayout(this);content.setOrientation(1);content.setGravity(Gravity.CENTER);content.setPadding(Ui.dp(this,24),Ui.dp(this,35),Ui.dp(this,24),Ui.dp(this,28));FrameLayout.LayoutParams contentLp=new FrameLayout.LayoutParams(-1,-1);panel.addView(content,contentLp);
-  TextView top=label("INCOMING VIDEO CALL",14,Color.WHITE);top.setLetterSpacing(.12f);top.setGravity(Gravity.CENTER);content.addView(top);
-  FrameLayout avatarFrame=new FrameLayout(this);LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(Ui.dp(this,112),Ui.dp(this,112));fp.setMargins(0,Ui.dp(this,30),0,Ui.dp(this,20));android.graphics.drawable.GradientDrawable ring=Ui.bg(Color.WHITE,Ui.dp(this,100));avatarFrame.setBackground(ring);avatarFrame.setPadding(Ui.dp(this,4),Ui.dp(this,4),Ui.dp(this,4),Ui.dp(this,4));
-  ImageView photo=ProfileImages.avatar(this,null,callerName==null?"User":callerName);photo.setScaleType(ImageView.ScaleType.CENTER_CROP);photo.setBackground(Ui.bg(Color.rgb(25,22,48),Ui.dp(this,100)));photo.setClipToOutline(true);FrameLayout.LayoutParams photoLp=new FrameLayout.LayoutParams(-1,-1);avatarFrame.addView(photo,photoLp);content.addView(avatarFrame,fp);
-  TextView info=label(callerName==null?"User":callerName,25,Color.WHITE);info.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);info.setGravity(Gravity.CENTER);info.setShadowLayer(6,0,2,Color.BLACK);content.addView(info);
-  TextView country=label("Loading caller details…",14,Color.WHITE);country.setGravity(Gravity.CENTER);country.setShadowLayer(5,0,1,Color.BLACK);LinearLayout.LayoutParams ctryLp=new LinearLayout.LayoutParams(-1,-2);ctryLp.topMargin=Ui.dp(this,8);content.addView(country,ctryLp);
-  TextView ringing=label("●  INCOMING CALL",12,Color.rgb(100,255,180));ringing.setLetterSpacing(.12f);ringing.setGravity(Gravity.CENTER);LinearLayout.LayoutParams rlp=new LinearLayout.LayoutParams(-1,-2);rlp.topMargin=Ui.dp(this,18);content.addView(ringing,rlp);
-  LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);actions.setOrientation(LinearLayout.HORIZONTAL);LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,Ui.dp(this,82));ap.topMargin=Ui.dp(this,36);content.addView(actions,ap);
-  Button decline=Ui.secondary(this,"✕");Button accept=Ui.button(this,"☎");decline.setContentDescription("Decline call");accept.setContentDescription("Accept call");decline.setTextColor(Color.WHITE);accept.setTextColor(Color.WHITE);decline.setTextSize(28);accept.setTextSize(27);decline.setAllCaps(false);accept.setAllCaps(false);decline.setPadding(0,0,0,0);accept.setPadding(0,0,0,0);decline.setBackground(Ui.bg(Color.rgb(220,45,62),Ui.dp(this,50)));accept.setBackground(Ui.bg(Color.rgb(25,190,105),Ui.dp(this,50)));LinearLayout.LayoutParams dl=new LinearLayout.LayoutParams(Ui.dp(this,72),Ui.dp(this,72));dl.setMargins(0,0,Ui.dp(this,36),0);LinearLayout.LayoutParams al=new LinearLayout.LayoutParams(Ui.dp(this,72),Ui.dp(this,72));al.setMargins(Ui.dp(this,36),0,0,0);actions.addView(decline,dl);actions.addView(accept,al);''',
-    "incoming call screen visual redesign"
+  View shade=new View(this);shade.setBackgroundColor(0x33000000);panel.addView(shade,new FrameLayout.LayoutParams(-1,-1));
+  TextView info=label(callerName==null?"User":callerName,1,Color.TRANSPARENT);
+  FrameLayout avatarFrame=new FrameLayout(this);android.graphics.drawable.GradientDrawable ring=Ui.bg(Color.WHITE,Ui.dp(this,100));avatarFrame.setBackground(ring);avatarFrame.setPadding(Ui.dp(this,4),Ui.dp(this,4),Ui.dp(this,4),Ui.dp(this,4));
+  ImageView photo=ProfileImages.avatar(this,null,callerName==null?"User":callerName);photo.setScaleType(ImageView.ScaleType.CENTER_CROP);photo.setBackground(Ui.bg(Color.BLACK,Ui.dp(this,100)));photo.setClipToOutline(true);avatarFrame.addView(photo,new FrameLayout.LayoutParams(-1,-1));
+  FrameLayout.LayoutParams avatarLp=new FrameLayout.LayoutParams(Ui.dp(this,112),Ui.dp(this,112),Gravity.CENTER);avatarLp.bottomMargin=Ui.dp(this,55);panel.addView(avatarFrame,avatarLp);
+  LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);actions.setOrientation(LinearLayout.HORIZONTAL);FrameLayout.LayoutParams actionsLp=new FrameLayout.LayoutParams(-1,Ui.dp(this,96),Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);actionsLp.bottomMargin=Ui.dp(this,38);panel.addView(actions,actionsLp);
+  Button decline=Ui.secondary(this,"✕");Button accept=Ui.button(this,"☎");decline.setContentDescription("Decline call");accept.setContentDescription("Accept call");decline.setTextColor(Color.WHITE);accept.setTextColor(Color.WHITE);decline.setTextSize(28);accept.setTextSize(27);decline.setAllCaps(false);accept.setAllCaps(false);decline.setPadding(0,0,0,0);accept.setPadding(0,0,0,0);decline.setBackground(Ui.bg(Color.rgb(220,45,62),Ui.dp(this,50)));accept.setBackground(Ui.bg(Color.rgb(25,190,105),Ui.dp(this,50)));LinearLayout.LayoutParams dl=new LinearLayout.LayoutParams(Ui.dp(this,72),Ui.dp(this,72));dl.setMargins(0,0,Ui.dp(this,36),0);LinearLayout.LayoutParams al=new LinearLayout.LayoutParams(Ui.dp(this,72),Ui.dp(this,72));al.setMargins(Ui.dp(this,36),0,0,0);actions.addView(decline,dl);actions.addView(accept,al);
+  dialog.setContentView(panel);if(dialog.getWindow()!=null)dialog.getWindow().setLayout(-1,-1);''',
+    "incoming call full-screen photo and icon-only round actions"
 )
 
 replace_once(
@@ -178,5 +184,3 @@ replace_once(
     '''ProfileImages.load(photo,ph,n);ProfileImages.load(backgroundPhoto,ph,n);});''',
     "sync incoming caller image to full-screen background"
 )
-
-# Incoming-call design requirement: full-screen caller photo with a small round avatar.
