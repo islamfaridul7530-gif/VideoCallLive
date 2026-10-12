@@ -5,7 +5,7 @@ import sys
 project = Path(sys.argv[1])
 base = project / "app/src/main/java/com/videocalllive/app"
 
-def replace_once(path, old, new, label):
+def replace_once(path, old, new, label="unnamed patch"):
     p = base / path
     text = p.read_text()
     count = text.count(old)
