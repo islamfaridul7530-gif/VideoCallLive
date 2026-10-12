@@ -724,3 +724,106 @@ exports.getCoinBalance = onCall(
     };
   }
 );
+
+/*
+ * ADMIN-ONLY Creator application review.
+ * An admin must have either the Firebase custom claim { admin: true } or
+ * a document admins/{uid} with active: true. Never trust a client-supplied role.
+ */
+exports.reviewCreatorApplication = onCall(
+  { region: "asia-south1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Please login first.");
+    }
+
+    const adminUid = request.auth.uid;
+    const adminDoc = await db.collection("admins").doc(adminUid).get();
+    const isAdmin = request.auth.token?.admin === true ||
+      (adminDoc.exists && adminDoc.data()?.active === true);
+
+    if (!isAdmin) {
+      throw new HttpsError("permission-denied", "Admin access is required.");
+    }
+
+    const creatorUid = String(request.data?.creatorUid || "").trim();
+    const decision = String(request.data?.decision || "").trim().toLowerCase();
+    const note = String(request.data?.note || "").trim().slice(0, 500);
+
+    if (!creatorUid || !["approved", "rejected", "pending"].includes(decision)) {
+      throw new HttpsError("invalid-argument", "Provide creatorUid and decision: approved, rejected, or pending.");
+    }
+
+    const userRef = db.collection("users").doc(creatorUid);
+    const snap = await userRef.get();
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Creator user profile was not found.");
+    }
+
+    await userRef.set({
+      creatorStatus: decision,
+      creatorApproved: decision === "approved",
+      creatorReviewNote: note,
+      creatorReviewedBy: adminUid,
+      creatorReviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+      // Approval does not bypass face verification.
+      paidCreatorAccess: decision === "approved" && snap.data()?.faceVerificationStatus === "verified",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    await db.collection("creatorApplicationReviews").add({
+      creatorUid,
+      decision,
+      note,
+      reviewedBy: adminUid,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { success: true, creatorUid, creatorStatus: decision };
+  }
+);
+
+/*
+ * Admin-controlled face verification result. This endpoint only records a
+ * trusted review outcome; it does not perform automated biometric matching.
+ */
+exports.setCreatorFaceVerification = onCall(
+  { region: "asia-south1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Please login first.");
+    }
+
+    const adminUid = request.auth.uid;
+    const adminDoc = await db.collection("admins").doc(adminUid).get();
+    const isAdmin = request.auth.token?.admin === true ||
+      (adminDoc.exists && adminDoc.data()?.active === true);
+
+    if (!isAdmin) {
+      throw new HttpsError("permission-denied", "Admin access is required.");
+    }
+
+    const creatorUid = String(request.data?.creatorUid || "").trim();
+    const status = String(request.data?.status || "").trim().toLowerCase();
+    if (!creatorUid || !["verified", "rejected", "not_submitted"].includes(status)) {
+      throw new HttpsError("invalid-argument", "Provide creatorUid and status: verified, rejected, or not_submitted.");
+    }
+
+    const userRef = db.collection("users").doc(creatorUid);
+    const snap = await userRef.get();
+    if (!snap.exists) {
+      throw new HttpsError("not-found", "Creator user profile was not found.");
+    }
+
+    const approved = snap.data()?.creatorStatus === "approved";
+    await userRef.set({
+      faceVerificationStatus: status,
+      paidCreatorAccess: approved && status === "verified",
+      faceVerificationReviewedBy: adminUid,
+      faceVerificationReviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    return { success: true, creatorUid, faceVerificationStatus: status, paidCreatorAccess: approved && status === "verified" };
+  }
+);
