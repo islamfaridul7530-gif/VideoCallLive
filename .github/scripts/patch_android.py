@@ -168,7 +168,7 @@ replace_once(
     '''  FrameLayout panel=new FrameLayout(this);
   ImageView backgroundPhoto=ProfileImages.avatar(this,null,callerName==null?"User":callerName);backgroundPhoto.setScaleType(ImageView.ScaleType.CENTER_CROP);panel.addView(backgroundPhoto,new FrameLayout.LayoutParams(-1,-1));
   View shade=new View(this);shade.setBackgroundColor(0x33000000);panel.addView(shade,new FrameLayout.LayoutParams(-1,-1));
-  TextView info=label(callerName==null?"User":callerName,1,Color.TRANSPARENT);
+  TextView info=label(callerName==null?"User":callerName,1,Color.TRANSPARENT);TextView country=label("",1,Color.TRANSPARENT);
   FrameLayout avatarFrame=new FrameLayout(this);android.graphics.drawable.GradientDrawable ring=Ui.bg(Color.WHITE,Ui.dp(this,100));avatarFrame.setBackground(ring);avatarFrame.setPadding(Ui.dp(this,4),Ui.dp(this,4),Ui.dp(this,4),Ui.dp(this,4));
   ImageView photo=ProfileImages.avatar(this,null,callerName==null?"User":callerName);photo.setScaleType(ImageView.ScaleType.CENTER_CROP);photo.setBackground(Ui.bg(Color.BLACK,Ui.dp(this,100)));photo.setClipToOutline(true);avatarFrame.addView(photo,new FrameLayout.LayoutParams(-1,-1));
   FrameLayout.LayoutParams avatarLp=new FrameLayout.LayoutParams(Ui.dp(this,112),Ui.dp(this,112),Gravity.CENTER);avatarLp.bottomMargin=Ui.dp(this,55);panel.addView(avatarFrame,avatarLp);
