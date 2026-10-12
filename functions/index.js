@@ -827,3 +827,42 @@ exports.setCreatorFaceVerification = onCall(
     return { success: true, creatorUid, faceVerificationStatus: status, paidCreatorAccess: approved && status === "verified" };
   }
 );
+
+/* List pending Creator applications for authenticated admins only. */
+exports.listCreatorApplicationsForAdmin = onCall(
+  { region: "asia-south1" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Please login first.");
+    }
+    const adminUid = request.auth.uid;
+    const adminDoc = await db.collection("admins").doc(adminUid).get();
+    const isAdmin = request.auth.token?.admin === true ||
+      (adminDoc.exists && adminDoc.data()?.active === true);
+    if (!isAdmin) {
+      throw new HttpsError("permission-denied", "Admin access is required.");
+    }
+
+    const snap = await db.collection("users")
+      .where("creatorProfileComplete", "==", true)
+      .limit(100)
+      .get();
+
+    const applications = snap.docs
+      .map((doc) => {
+        const data = doc.data() || {};
+        return {
+          uid: doc.id,
+          creatorName: String(data.creatorName || data.name || ""),
+          creatorStatus: String(data.creatorStatus || "pending"),
+          faceVerificationStatus: String(data.faceVerificationStatus || "not_submitted"),
+          country: String(data.country || ""),
+          creatorReviewNote: String(data.creatorReviewNote || ""),
+          createdAt: data.creatorAppliedAt || data.updatedAt || null,
+        };
+      })
+      .filter((item) => ["pending", "rejected", "approved"].includes(item.creatorStatus));
+
+    return { success: true, applications };
+  }
+);
