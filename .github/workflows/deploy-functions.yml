@@ -12,6 +12,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      # Work around Cloud Functions v1 LIST API failures for this Gen 2-only codebase.
+      FIREBASE_FUNCTIONS_FORCE_V2_LIST: 'true'
 
     steps:
       - name: Checkout repository
@@ -56,4 +59,5 @@ jobs:
       - name: Deploy Firebase Functions
         env:
           CASHFREE_ENVIRONMENT: sandbox
+          FIREBASE_FUNCTIONS_FORCE_V2_LIST: 'true'
         run: firebase deploy --only functions --project videocalllive-bcd7c --non-interactive --force
