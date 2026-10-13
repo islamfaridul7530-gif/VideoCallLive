@@ -231,3 +231,28 @@ if "AdminReviewActivity" not in xml:
     xml = xml.replace(marker, '<activity android:name=".AdminReviewActivity" android:exported="false" />\n    ' + marker)
     manifest.write_text(xml)
 print("Registered AdminReviewActivity and added Creator Home entry; server enforces Admin privileges.")
+
+# Make Admin Review reachable from the actual Become a Creator/application screen too.
+# The application-status page can be different from CreatorHomeActivity in the source ZIP.
+setup_patch = base / "CreatorSetupActivity.java"
+if setup_patch.exists():
+    setup_text = setup_patch.read_text()
+    if "AdminReviewActivity.class" not in setup_text:
+        import re
+        matches = list(re.finditer(r"setContentView\\(\\s*([A-Za-z_$][\\w$]*)\\s*\\);", setup_text))
+        if len(matches) != 1:
+            raise SystemExit(f"CreatorSetupActivity Admin Review entry: expected one setContentView(variable), got {len(matches)}")
+        root_name = matches[0].group(1)
+        inject = (
+            'Button adminReviewButton=Ui.secondary(this,"Admin Review (admin only)");'
+            + root_name + '.addView(adminReviewButton);'
+            + 'adminReviewButton.setOnClickListener(v->startActivity(new Intent(this,AdminReviewActivity.class)));\\n  '
+        )
+        setup_text = setup_text[:matches[0].start()] + inject + setup_text[matches[0].start():]
+        setup_patch.write_text(setup_text)
+        print("Added Admin Review entry to Become a Creator/application screen.")
+    else:
+        print("CreatorSetupActivity already has Admin Review entry.")
+else:
+    print("CreatorSetupActivity.java not found; Creator Home entry remains available.")
+
