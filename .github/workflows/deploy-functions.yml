@@ -59,6 +59,7 @@ jobs:
       - name: Provide non-secret Functions parameters
         working-directory: functions
         run: |
+          printf 'CASHFREE_ENVIRONMENT=sandbox\n' > .env
           printf 'CASHFREE_ENVIRONMENT=sandbox\n' > .env.videocallive-bcd7c
 
       - name: Deploy Firebase Functions
