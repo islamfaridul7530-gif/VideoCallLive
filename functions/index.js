@@ -647,3 +647,43 @@ exports.getCoinBalance = onCall(
     };
   }
 );
+
+/*
+ * ADMIN ACCESS
+ *
+ * Only the owner's Firebase UID below can bootstrap the admin claim.
+ * This UID is not a password or secret; it only identifies the owner account.
+ */
+const OWNER_ADMIN_UID = "cmnDofW7OcYP2FvTV2KA1uTARM22";
+
+exports.bootstrapAdmin = onCall(
+  {
+    region: "asia-south1",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Please login first."
+      );
+    }
+
+    if (request.auth.uid !== OWNER_ADMIN_UID) {
+      throw new HttpsError(
+        "permission-denied",
+        "Admin bootstrap is not available for this account."
+      );
+    }
+
+    await admin.auth().setCustomUserClaims(
+      OWNER_ADMIN_UID,
+      { admin: true }
+    );
+
+    return {
+      success: true,
+      admin: true,
+      uid: OWNER_ADMIN_UID,
+    };
+  }
+);
