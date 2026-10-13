@@ -107,22 +107,39 @@ jobs:
           test -n "$KEY_PASSWORD"
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
           mkdir -p "$GITHUB_WORKSPACE/signed"
-          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" "$GITHUB_WORKSPACE/signed/VideoCallLive-V44-aligned.apk"
-          "$BUILD_TOOLS_DIR/apksigner" sign --ks "$RUNNER_TEMP/release.keystore" --ks-pass "pass:$KEYSTORE_PASSWORD" --ks-key-alias "$KEY_ALIAS" --key-pass "pass:$KEY_PASSWORD" --out "$GITHUB_WORKSPACE/signed/VideoCallLive-V44.apk" "$GITHUB_WORKSPACE/signed/VideoCallLive-V44-aligned.apk"
+          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" "$GITHUB_WORKSPACE/signed/VideoCallLive-V45-aligned.apk"
+          "$BUILD_TOOLS_DIR/apksigner" sign --ks "$RUNNER_TEMP/release.keystore" --ks-pass "pass:$KEYSTORE_PASSWORD" --ks-key-alias "$KEY_ALIAS" --key-pass "pass:$KEY_PASSWORD" --out "$GITHUB_WORKSPACE/signed/VideoCallLive-V45.apk" "$GITHUB_WORKSPACE/signed/VideoCallLive-V45-aligned.apk"
 
       - name: Verify package, version and signing certificate
         run: |
           set -euo pipefail
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
           echo "=== APK package/version ==="
-          "$BUILD_TOOLS_DIR/aapt" dump badging "$GITHUB_WORKSPACE/signed/VideoCallLive-V44.apk" | head -n 1
+          "$BUILD_TOOLS_DIR/aapt" dump badging "$GITHUB_WORKSPACE/signed/VideoCallLive-V45.apk" | head -n 1
           echo "=== APK signing certificate ==="
-          "$BUILD_TOOLS_DIR/apksigner" verify --verbose --print-certs "$GITHUB_WORKSPACE/signed/VideoCallLive-V44.apk"
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose --print-certs "$GITHUB_WORKSPACE/signed/VideoCallLive-V45.apk"
+
+      - name: Verify Admin Review button is compiled into APK
+        run: |
+          set -euo pipefail
+          APK="$GITHUB_WORKSPACE/signed/VideoCallLive-V45.apk"
+          echo "=== Check compiled DEX for Admin Review UI ==="
+          mkdir -p "$RUNNER_TEMP/apk-check"
+          unzip -q "$APK" 'classes*.dex' -d "$RUNNER_TEMP/apk-check"
+          if ! find "$RUNNER_TEMP/apk-check" -name 'classes*.dex' -print0 | xargs -0 strings | grep -F -m 1 'Admin Review (admin only)'; then
+            echo "ERROR: Admin Review label is missing from compiled APK."
+            exit 1
+          fi
+          if ! find "$RUNNER_TEMP/apk-check" -name 'classes*.dex' -print0 | xargs -0 strings | grep -F -m 1 'listCreatorApplicationsForAdmin'; then
+            echo "ERROR: Admin review callable reference is missing from compiled APK."
+            exit 1
+          fi
+          echo "PASS: Admin Review label and backend callable reference are in the APK."
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V44-SIGNED-APK
-          path: signed/VideoCallLive-V44.apk
+          name: VideoCallLive-V45-SIGNED-APK
+          path: signed/VideoCallLive-V45.apk
           if-no-files-found: error
           retention-days: 30
