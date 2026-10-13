@@ -239,14 +239,14 @@ if setup_patch.exists():
     setup_text = setup_patch.read_text()
     if "AdminReviewActivity.class" not in setup_text:
         import re
-        matches = list(re.finditer(r"setContentView\\(\\s*([A-Za-z_$][\\w$]*)\\s*\\);", setup_text))
+        matches = list(re.finditer(r"setContentView\(\s*([A-Za-z_$][\w$]*)\s*\);", setup_text))
         if len(matches) != 1:
             raise SystemExit(f"CreatorSetupActivity Admin Review entry: expected one setContentView(variable), got {len(matches)}")
         root_name = matches[0].group(1)
         inject = (
             'Button adminReviewButton=Ui.secondary(this,"Admin Review (admin only)");'
             + root_name + '.addView(adminReviewButton);'
-            + 'adminReviewButton.setOnClickListener(v->startActivity(new Intent(this,AdminReviewActivity.class)));\\n  '
+            + 'adminReviewButton.setOnClickListener(v->startActivity(new Intent(this,AdminReviewActivity.class)));\n  '
         )
         setup_text = setup_text[:matches[0].start()] + inject + setup_text[matches[0].start():]
         setup_patch.write_text(setup_text)
