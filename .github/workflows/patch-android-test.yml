@@ -47,6 +47,8 @@ jobs:
           unzip -q VideoCallLive-PAYMENT-TEST-15-FINAL.zip -d android-work
           PROJECT="$(find android-work -type f -name settings.gradle -printf '%h\n' | head -n 1)"
           test -n "$PROJECT"
+          echo "=== LOCATING THE EXACT PENDING CREATOR SCREEN ==="
+          grep -R -n -E "Application status: Pending|Creator access is not active yet|Back to My Profile|Become a Creator" "$PROJECT/app/src/main" --include='*.java' --include='*.xml' || true
           python3 .github/scripts/patch_android.py "$PROJECT"
           export PROJECT
           python3 - <<'PY'
