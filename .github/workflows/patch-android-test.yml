@@ -64,6 +64,16 @@ jobs:
           src = src.replace('status.setText("Creator application\\n"+a+"\\n"+f+"\\nPaid calls, earnings and withdrawal remain locked until both checks are complete.");', 'status.setText("CREATOR APPLICATION STATUS\\n\\n"+a+"\\n"+f+"\\n\\nNext step: wait for Admin review and complete face verification if requested.\\n\\nPaid calls, earnings and withdrawal remain locked until approval and verification are complete.");')
           p.write_text(src)
           print("Updated Creator Application pending status screen and return navigation only.")
+          # The screenshot's exact screen is CreatorApplicationActivity, not CreatorSetupActivity.
+          app = Path(os.environ["PROJECT"]) / "app/src/main/java/com/videocalllive/app/CreatorApplicationActivity.java"
+          src = app.read_text()
+          old = 'Button back=Ui.secondary(this,"Back to My Profile");r.addView(back);'
+          new = 'Button admin=Ui.secondary(this,"Admin Review (admin only)");r.addView(admin);admin.setOnClickListener(v->startActivity(new Intent(this,AdminReviewActivity.class)));Button back=Ui.secondary(this,"Back to My Profile");r.addView(back);'
+          if src.count(old) != 1:
+              raise SystemExit(f"CreatorApplicationActivity pending-screen anchor mismatch: {src.count(old)}")
+          src = src.replace(old, new, 1)
+          app.write_text(src)
+          print("FIXED: Added Admin Review entry directly to CreatorApplicationActivity pending screen.")
           PY
           echo "$PROJECT" > /tmp/android-project-path
 
