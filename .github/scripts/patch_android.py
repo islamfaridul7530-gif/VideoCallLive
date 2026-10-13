@@ -195,34 +195,39 @@ replace_once(
 )
 
 
-// Admin Creator Review screen: all decisions call Admin-only Firebase Functions.
-const adminActivity = `package com.videocalllive.app;
-import android.app.*;import android.os.*;import android.view.*;import android.widget.*;import java.util.*;import com.google.firebase.functions.*;
-public class AdminReviewActivity extends Activity{
+# Admin Creator Review screen: every mutation goes through Admin-only callable functions.
+admin_activity = r'''package com.videocalllive.app;
+import android.app.*;import android.os.*;import android.widget.*;import java.util.*;import com.google.firebase.functions.*;
+public class AdminReviewActivity extends Activity {
  LinearLayout list; TextView status; FirebaseFunctions fn;
  public void onCreate(Bundle b){super.onCreate(b);fn=FirebaseFunctions.getInstance("asia-south1");LinearLayout root=Ui.root(this);root.addView(Ui.backTitle(this,"Admin Creator Review"));status=Ui.body(this,"Loading applications…");root.addView(status);ScrollView sv=new ScrollView(this);list=new LinearLayout(this);list.setOrientation(1);sv.addView(list);root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));Button reload=Ui.button(this,"Refresh Applications");root.addView(reload);reload.setOnClickListener(v->load());setContentView(root);load();}
- void load(){status.setText("Loading applications…");list.removeAllViews();fn.getHttpsCallable("listCreatorApplicationsForAdmin").call().addOnSuccessListener(r->{Object raw=((Map<?,?>)r.getData()).get("applications");if(!(raw instanceof List)||((List<?>)raw).isEmpty()){status.setText("No creator applications found.");return;}status.setText("Applications: "+((List<?>)raw).size());for(Object o:(List<?>)raw){if(!(o instanceof Map))continue;Map<?,?> a=(Map<?,?>)o;String uid=String.valueOf(a.get("uid"));String name=String.valueOf(a.getOrDefault("creatorName","Creator"));String state=String.valueOf(a.getOrDefault("creatorStatus","pending"));String face=String.valueOf(a.getOrDefault("faceVerificationStatus","not_submitted"));LinearLayout card=Ui.card(this);card.addView(Ui.title(this,name));card.addView(Ui.body(this,"UID: "+uid+"\\nApplication: "+state+"\\nFace verification: "+face+"\\nCountry: "+String.valueOf(a.get("country"))));Button approve=Ui.button(this,"Approve");Button reject=Ui.secondary(this,"Reject");Button more=Ui.secondary(this,"Request More Info");Button verified=Ui.button(this,"Mark Face Verified");Button faceReject=Ui.secondary(this,"Reject Face Verification");card.addView(approve);card.addView(reject);card.addView(more);card.addView(verified);card.addView(faceReject);approve.setOnClickListener(v->review(uid,"approved","Approved by admin"));reject.setOnClickListener(v->review(uid,"rejected","Rejected by admin"));more.setOnClickListener(v->{EditText input=new EditText(this);input.setHint("What information is needed?");new AlertDialog.Builder(this).setTitle("Request more information").setView(input).setNegativeButton("Cancel",null).setPositiveButton("Send",(d,w)->review(uid,"pending",input.getText().toString())).show();});verified.setOnClickListener(v->face(uid,"verified"));faceReject.setOnClickListener(v->face(uid,"rejected"));list.addView(card);}}).addOnFailureListener(e->{status.setText("Admin access unavailable: "+e.getMessage()+"\\nMake sure this Firebase account is configured as an Admin.");});}
- void review(String uid,String decision,String note){Map<String,Object> d=new HashMap<>();d.put("creatorUid",uid);d.put("decision",decision);d.put("note",note);fn.getHttpsCallable("reviewCreatorApplication").call(d).addOnSuccessListener(r->{Toast.makeText(this,"Application updated",Toast.LENGTH_SHORT).show();load();}).addOnFailureListener(e->Toast.makeText(this,"Review failed: "+e.getMessage(),Toast.LENGTH_LONG).show());}
+ void load(){status.setText("Loading applications…");list.removeAllViews();fn.getHttpsCallable("listCreatorApplicationsForAdmin").call().addOnSuccessListener(r->{Object raw=((Map<?,?>)r.getData()).get("applications");if(!(raw instanceof List)||((List<?>)raw).isEmpty()){status.setText("No creator applications found.");return;}status.setText("Applications: "+((List<?>)raw).size());for(Object o:(List<?>)raw){if(!(o instanceof Map))continue;Map<?,?> a=(Map<?,?>)o;String uid=String.valueOf(a.get("uid"));String name=String.valueOf(a.containsKey("creatorName")?a.get("creatorName"):"Creator");String state=String.valueOf(a.containsKey("creatorStatus")?a.get("creatorStatus"):"pending");String face=String.valueOf(a.containsKey("faceVerificationStatus")?a.get("faceVerificationStatus"):"not_submitted");LinearLayout card=Ui.card(this);card.addView(Ui.title(this,name));card.addView(Ui.body(this,"UID: "+uid+"\nApplication: "+state+"\nFace verification: "+face+"\nCountry: "+String.valueOf(a.get("country"))));Button approve=Ui.button(this,"Approve");Button reject=Ui.secondary(this,"Reject");Button more=Ui.secondary(this,"Request More Info");Button verified=Ui.button(this,"Mark Face Verified");Button faceReject=Ui.secondary(this,"Reject Face Verification");card.addView(approve);card.addView(reject);card.addView(more);card.addView(verified);card.addView(faceReject);approve.setOnClickListener(v->review(uid,"approved","Approved by admin"));reject.setOnClickListener(v->review(uid,"rejected","Rejected by admin"));more.setOnClickListener(v->{EditText input=new EditText(this);input.setHint("What information is needed?");new AlertDialog.Builder(this).setTitle("Request more information").setView(input).setNegativeButton("Cancel",null).setPositiveButton("Send",(d,w)->review(uid,"pending",input.getText().toString())).show();});verified.setOnClickListener(v->face(uid,"verified"));faceReject.setOnClickListener(v->face(uid,"rejected"));list.addView(card);}}).addOnFailureListener(e->{status.setText("Admin access unavailable: "+e.getMessage()+"\nConfigure this Firebase account as an Admin.");});}
+ void review(String uid,String decision,String note){Map<String,Object>d=new HashMap<>();d.put("creatorUid",uid);d.put("decision",decision);d.put("note",note);fn.getHttpsCallable("reviewCreatorApplication").call(d).addOnSuccessListener(r->{Toast.makeText(this,"Application updated",Toast.LENGTH_SHORT).show();load();}).addOnFailureListener(e->Toast.makeText(this,"Review failed: "+e.getMessage(),Toast.LENGTH_LONG).show());}
  void face(String uid,String state){Map<String,Object>d=new HashMap<>();d.put("creatorUid",uid);d.put("status",state);fn.getHttpsCallable("setCreatorFaceVerification").call(d).addOnSuccessListener(r->{Toast.makeText(this,"Face status updated",Toast.LENGTH_SHORT).show();load();}).addOnFailureListener(e->Toast.makeText(this,"Face review failed: "+e.getMessage(),Toast.LENGTH_LONG).show());}
-}`;
-const adminFile=base / "AdminReviewActivity.java";
-adminFile.write_text(adminActivity);
-print("Created AdminReviewActivity with live Admin-only approve/reject/request-info and face review actions.");
-const creator=base / "CreatorHomeActivity.java";
-let creatorText=creator.read_text();
-const anchor='Button edit=Ui.secondary(this,"Edit Creator Profile");Button home=Ui.secondary(this,"Back to Home");r.addView(edit);r.addView(home);';
-if(creatorText.count(anchor)!==1) throw new Error("Creator Home admin entry insertion anchor mismatch: "+creatorText.count(anchor));
-creatorText=creatorText.replace(anchor,'Button edit=Ui.secondary(this,"Edit Creator Profile");Button admin=Ui.secondary(this,"Admin Review");Button home=Ui.secondary(this,"Back to Home");r.addView(edit);r.addView(admin);r.addView(home);');
-const clickAnchor='edit.setOnClickListener(v->{p.edit().putBoolean("creator_profile_complete",false).apply();startActivity(new Intent(this,CreatorSetupActivity.class));finish();});';
-if(creatorText.count(clickAnchor)!==1) throw new Error("Creator Home click insertion anchor mismatch");
-creatorText=creatorText.replace(clickAnchor,clickAnchor+'admin.setOnClickListener(v->startActivity(new Intent(this,AdminReviewActivity.class)));');
-creator.write_text(creatorText);
-const manifest=project / "app/src/main/AndroidManifest.xml";
-let xml=manifest.read_text();
-if(!xml.includes("AdminReviewActivity")) {
- const marker="</application>";
- if(xml.split(marker).length!==2) throw new Error("Android manifest application marker mismatch");
- xml=xml.replace(marker,'<activity android:name=".AdminReviewActivity" android:exported="false" />\n    '+marker);
- manifest.write_text(xml);
 }
-print("Registered AdminReviewActivity and added an entry from Creator Home. Backend remains the authority for admin permissions.");
+'''
+admin_file = base / "AdminReviewActivity.java"
+admin_file.write_text(admin_activity)
+print("Created AdminReviewActivity with live Admin-only review actions.")
+
+creator = base / "CreatorHomeActivity.java"
+creator_text = creator.read_text()
+anchor = 'Button edit=Ui.secondary(this,"Edit Creator Profile");Button home=Ui.secondary(this,"Back to Home");r.addView(edit);r.addView(home);'
+if creator_text.count(anchor) != 1:
+    raise SystemExit("Creator Home admin entry insertion anchor mismatch")
+creator_text = creator_text.replace(anchor, 'Button edit=Ui.secondary(this,"Edit Creator Profile");Button admin=Ui.secondary(this,"Admin Review");Button home=Ui.secondary(this,"Back to Home");r.addView(edit);r.addView(admin);r.addView(home);')
+click_anchor = 'edit.setOnClickListener(v->{p.edit().putBoolean("creator_profile_complete",false).apply();startActivity(new Intent(this,CreatorSetupActivity.class));finish();});'
+if creator_text.count(click_anchor) != 1:
+    raise SystemExit("Creator Home click insertion anchor mismatch")
+creator_text = creator_text.replace(click_anchor, click_anchor + 'admin.setOnClickListener(v->startActivity(new Intent(this,AdminReviewActivity.class)));')
+creator.write_text(creator_text)
+
+manifest = project / "app/src/main/AndroidManifest.xml"
+xml = manifest.read_text()
+if "AdminReviewActivity" not in xml:
+    marker = "</application>"
+    if xml.count(marker) != 1:
+        raise SystemExit("Android manifest application marker mismatch")
+    xml = xml.replace(marker, '<activity android:name=".AdminReviewActivity" android:exported="false" />\n    ' + marker)
+    manifest.write_text(xml)
+print("Registered AdminReviewActivity and added Creator Home entry; server enforces Admin privileges.")
