@@ -24,7 +24,7 @@ jobs:
           node - <<'NODE'
           const fs = require("fs");
           const source = fs.readFileSync("functions/index.js", "utf8");
-          for (const name of ["reviewCreatorApplication", "setCreatorFaceVerification"]) {
+          for (const name of ["reviewCreatorApplication", "setCreatorFaceVerification", "listCreatorApplicationsForAdmin"]) {
             if (!source.includes("exports." + name + " = onCall")) {
               console.error("Missing endpoint:", name);
               process.exit(1);
