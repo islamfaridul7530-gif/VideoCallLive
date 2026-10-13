@@ -5,6 +5,8 @@ on:
     branches: [feature/quick-login-coins-withdrawal]
     paths:
       - ".github/workflows/patch-android-test.yml"
+      - ".github/scripts/patch_android.py"
+      - "VideoCallLive-PAYMENT-TEST-15-FINAL.zip"
   pull_request:
     branches: [main]
     paths:
