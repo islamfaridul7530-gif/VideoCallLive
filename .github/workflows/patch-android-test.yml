@@ -1,0 +1,145 @@
+name: Patch Android account rules and build signed APK
+
+on:
+  push:
+    branches: [feature/quick-login-coins-withdrawal]
+    paths:
+      - ".github/workflows/patch-android-test.yml"
+      - ".github/scripts/patch_android.py"
+      - "VideoCallLive-PAYMENT-TEST-15-FINAL.zip"
+  pull_request:
+    branches: [main]
+    paths:
+      - "VideoCallLive-PAYMENT-TEST-15-FINAL.zip"
+      - ".github/workflows/patch-android-test.yml"
+      - ".github/scripts/patch_android.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Extract and patch Android source
+        run: |
+          set -euo pipefail
+          rm -rf android-work
+          mkdir android-work
+          unzip -q VideoCallLive-PAYMENT-TEST-15-FINAL.zip -d android-work
+          PROJECT="$(find android-work -type f -name settings.gradle -printf '%h\n' | head -n 1)"
+          test -n "$PROJECT"
+          echo "=== LOCATING THE EXACT PENDING CREATOR SCREEN ==="
+          grep -R -n -E "Application status: Pending|Creator access is not active yet|Back to My Profile|Become a Creator" "$PROJECT/app/src/main" --include='*.java' --include='*.xml' || true
+          python3 .github/scripts/patch_android.py "$PROJECT"
+          export PROJECT
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path(os.environ["PROJECT"]) / "app/src/main/java/com/videocalllive/app/CreatorHomeActivity.java"
+          src = p.read_text()
+          # Only adjust the return destination and clarify the pending/verification status UI.
+          src = src.replace('Button home=Ui.secondary(this,"Back to Home");', 'Button home=Ui.secondary(this,"Back to My Profile");')
+          src = src.replace('home.setOnClickListener(v->{startActivity(new Intent(this,HomeActivity.class));finish();});', 'home.setOnClickListener(v->{startActivity(new Intent(this,HomeActivity.class));finish();});')
+          src = src.replace('String a=approved?"Approval: approved":"Approval: pending";', 'String a=approved?"Approval: approved":"Application status: pending review";')
+          src = src.replace('String f=verified?"Face verification: verified":"Face verification: required";', 'String f=verified?"Face verification: verified":"Face verification: not yet verified";')
+          src = src.replace('status.setText("Creator application\\n"+a+"\\n"+f+"\\nPaid calls, earnings and withdrawal remain locked until both checks are complete.");', 'status.setText("CREATOR APPLICATION STATUS\\n\\n"+a+"\\n"+f+"\\n\\nNext step: wait for Admin review and complete face verification if requested.\\n\\nPaid calls, earnings and withdrawal remain locked until approval and verification are complete.");')
+          p.write_text(src)
+          print("Updated Creator Application pending status screen and return navigation only.")
+          # The screenshot's exact screen is CreatorApplicationActivity, not CreatorSetupActivity.
+          app = Path(os.environ["PROJECT"]) / "app/src/main/java/com/videocalllive/app/CreatorApplicationActivity.java"
+          src = app.read_text()
+          old = 'Button back=Ui.secondary(this,"Back to My Profile");r.addView(back);'
+          new = 'Button admin=Ui.secondary(this,"Admin Review (admin only)");r.addView(admin);admin.setOnClickListener(v->startActivity(new Intent(this,AdminReviewActivity.class)));Button back=Ui.secondary(this,"Back to My Profile");r.addView(back);'
+          if src.count(old) != 1:
+              raise SystemExit(f"CreatorApplicationActivity pending-screen anchor mismatch: {src.count(old)}")
+          src = src.replace(old, new, 1)
+          app.write_text(src)
+          print("FIXED: Added Admin Review entry directly to CreatorApplicationActivity pending screen.")
+          PY
+          echo "$PROJECT" > /tmp/android-project-path
+
+      - name: Build release APK
+        run: |
+          set -euo pipefail
+          PROJECT="$(cat /tmp/android-project-path)"
+          cd "$PROJECT"
+          gradle --no-daemon clean assembleRelease
+          APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          echo "UNSIGNED_APK=$GITHUB_WORKSPACE/$PROJECT/$APK" >> "$GITHUB_ENV"
+
+      - name: Restore release signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+
+      - name: Align and sign APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
+          BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          mkdir -p "$GITHUB_WORKSPACE/signed"
+          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" "$GITHUB_WORKSPACE/signed/VideoCallLive-V45-aligned.apk"
+          "$BUILD_TOOLS_DIR/apksigner" sign --ks "$RUNNER_TEMP/release.keystore" --ks-pass "pass:$KEYSTORE_PASSWORD" --ks-key-alias "$KEY_ALIAS" --key-pass "pass:$KEY_PASSWORD" --out "$GITHUB_WORKSPACE/signed/VideoCallLive-V45.apk" "$GITHUB_WORKSPACE/signed/VideoCallLive-V45-aligned.apk"
+
+      - name: Verify package, version and signing certificate
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          echo "=== APK package/version ==="
+          "$BUILD_TOOLS_DIR/aapt" dump badging "$GITHUB_WORKSPACE/signed/VideoCallLive-V45.apk" | head -n 1
+          echo "=== APK signing certificate ==="
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose --print-certs "$GITHUB_WORKSPACE/signed/VideoCallLive-V45.apk"
+
+      - name: Verify Admin Review button is compiled into APK
+        run: |
+          set -euo pipefail
+          APK="$GITHUB_WORKSPACE/signed/VideoCallLive-V45.apk"
+          echo "=== Check compiled DEX for Admin Review UI ==="
+          mkdir -p "$RUNNER_TEMP/apk-check"
+          unzip -q "$APK" 'classes*.dex' -d "$RUNNER_TEMP/apk-check"
+          if ! find "$RUNNER_TEMP/apk-check" -name 'classes*.dex' -print0 | xargs -0 strings | grep -F -m 1 'Admin Review (admin only)'; then
+            echo "ERROR: Admin Review label is missing from compiled APK."
+            exit 1
+          fi
+          if ! find "$RUNNER_TEMP/apk-check" -name 'classes*.dex' -print0 | xargs -0 strings | grep -F -m 1 'listCreatorApplicationsForAdmin'; then
+            echo "ERROR: Admin review callable reference is missing from compiled APK."
+            exit 1
+          fi
+          echo "PASS: Admin Review label and backend callable reference are in the APK."
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoCallLive-V45-SIGNED-APK
+          path: signed/VideoCallLive-V45.apk
+          if-no-files-found: error
+          retention-days: 30

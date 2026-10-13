@@ -1,11 +1,20 @@
 name: Deploy Firebase Functions
 
 on:
+  push:
+    branches: [feature/quick-login-coins-withdrawal]
+    paths:
+      - "functions/index.js"
+      - "functions/package.json"
+      - ".github/workflows/deploy-functions.yml"
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      # Work around Cloud Functions v1 LIST API failures for this Gen 2-only codebase.
+      FIREBASE_FUNCTIONS_FORCE_V2_LIST: 'true'
 
     steps:
       - name: Checkout repository
@@ -47,5 +56,14 @@ jobs:
 
           printf '%s' "$CASHFREE_SECRET_KEY" | firebase functions:secrets:set CASHFREE_SECRET_KEY --project videocalllive-bcd7c --data-file=-
 
+      - name: Provide non-secret Functions parameters
+        working-directory: functions
+        run: |
+          printf 'CASHFREE_ENVIRONMENT=sandbox\n' > .env
+          printf 'CASHFREE_ENVIRONMENT=sandbox\n' > .env.videocallive-bcd7c
+
       - name: Deploy Firebase Functions
+        env:
+          CASHFREE_ENVIRONMENT: sandbox
+          FIREBASE_FUNCTIONS_FORCE_V2_LIST: 'true'
         run: firebase deploy --only functions --project videocalllive-bcd7c --non-interactive --force
