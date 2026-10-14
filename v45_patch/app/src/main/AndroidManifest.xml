@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<uses-permission android:name="android.permission.INTERNET"/>
+<application android:theme="@style/AppTheme" android:label="VideoCall Live" android:allowBackup="true" android:supportsRtl="true">
+<activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+<activity android:name=".LoginActivity"/>
+<activity android:name=".GenderActivity"/>
+<activity android:name=".HomeActivity"/>
+<activity android:name=".MyProfileActivity"/>
+<activity android:name=".SimpleProfileOptionActivity"/>
+<activity android:name=".FemaleProfileSetupActivity"/>
+<activity android:name=".CreatorApplicationActivity"/>
+<activity android:name=".AdminReviewActivity"/>
+<activity android:name=".TopUpActivity"/>
+<activity android:name=".MessagesActivity"/>
+<activity android:name=".ChatActivity" android:windowSoftInputMode="adjustResize"/>
+<activity android:name=".VideoHubActivity"/>
+<activity android:name=".RealUsersActivity"/>
+<activity android:name=".ProfileDetailActivity"/>
+<activity android:name=".RealCallActivity"/>
+<activity android:name=".CallActivity"/>
+<activity android:name=".CreatorSetupActivity"/>
+<activity android:name=".CreatorHomeActivity"/>
+<activity android:name=".SupportActivity"/>
+<activity android:name=".PhotoManagerActivity"/>
+</application>
+</manifest>
