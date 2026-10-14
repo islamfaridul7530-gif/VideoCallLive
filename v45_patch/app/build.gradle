@@ -7,12 +7,11 @@ android {
   minSdk 23
   targetSdk 35
   versionCode 45
-  versionName "45.0-admin-coins-fix"
+  versionName "45.0-creator-verification"
  }
 }
 dependencies {
-    // V6 FIX: Firebase Auth 23.2.0 requires newer ContextCompat.registerReceiver(..., flags)
-    implementation 'androidx.core:core:1.15.0'
+ implementation 'androidx.core:core:1.15.0'
  implementation platform('com.google.firebase:firebase-bom:33.12.0')
  implementation 'com.google.firebase:firebase-auth'
  implementation 'com.google.firebase:firebase-firestore'
@@ -20,12 +19,9 @@ dependencies {
  implementation 'com.google.firebase:firebase-functions'
  implementation 'com.cashfree.pg:api:2.4.0'
  implementation 'io.github.webrtc-sdk:android:144.7559.15'
+ implementation 'com.google.mlkit:face-detection:16.1.7'
 }
 configurations.configureEach {
-    resolutionStrategy {
-        force 'androidx.core:core:1.15.0'
-    }
+ resolutionStrategy { force 'androidx.core:core:1.15.0' }
 }
-if (file('google-services.json').exists()) {
- apply plugin: 'com.google.gms.google-services'
-}
+if (file('google-services.json').exists()) { apply plugin: 'com.google.gms.google-services' }
