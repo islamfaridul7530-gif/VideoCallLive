@@ -48,8 +48,7 @@ public class TopUpActivity extends Activity implements CFCheckoutResponseCallbac
         r.setPadding(Ui.dp(this,16),Ui.dp(this,42),Ui.dp(this,16),Ui.dp(this,10));
         r.addView(Ui.title(this,"Coins"));
         balance=Ui.body(this,"🪙 Loading balance…"); balance.setTextColor(Color.WHITE); r.addView(balance);
-        TextView note=Ui.body(this,"Test payment: ₹15 → 300 Coins
-Cashfree Sandbox"); note.setTextColor(Color.rgb(255,220,120)); r.addView(note);
+        TextView note=Ui.body(this,"Test payment: ₹15 → 300 Coins\nCashfree Sandbox"); note.setTextColor(Color.rgb(255,220,120)); r.addView(note);
 
         addPack(r,"₹15  •  300 Coins  •  TEST", "test_15", true);
         addPack(r,"₹100  •  100 Coins", "pack_100", false);
