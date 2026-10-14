@@ -1,30 +1,18 @@
 package com.videocalllive.app;
-import android.app.*;import android.os.*;import android.content.*;import android.widget.*;import android.view.*;
-import com.google.firebase.auth.FirebaseAuth;import com.google.firebase.firestore.*;
-import java.util.*;
+import android.app.*;import android.os.*;import android.content.*;import android.widget.*;import android.view.*;import android.graphics.Bitmap;import android.graphics.BitmapFactory;
+import com.google.firebase.auth.FirebaseAuth;import com.google.firebase.firestore.*;import com.google.firebase.storage.FirebaseStorage;
+import java.util.*;import java.net.URL;
 public class AdminReviewActivity extends Activity{
- private static final String OWNER_ADMIN_UID = "cmnDofW7OcYP2FvTV2KA1uTARM22";
- private LinearLayout list; private FirebaseFirestore db;
- @Override public void onCreate(Bundle b){super.onCreate(b);
-  if(!OWNER_ADMIN_UID.equals(FirebaseAuth.getInstance().getUid())){Toast.makeText(this,"Admin access denied",Toast.LENGTH_LONG).show();finish();return;}
-  db=FirebaseFirestore.getInstance();LinearLayout outer=Ui.root(this);outer.addView(Ui.backTitle(this,"Admin Creator Review"));
-  Button refresh=Ui.secondary(this,"Refresh Applications");outer.addView(refresh);
-  ScrollView scroll=new ScrollView(this);list=new LinearLayout(this);list.setOrientation(LinearLayout.VERTICAL);scroll.addView(list);outer.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-  refresh.setOnClickListener(v->load());setContentView(outer);load();
- }
- private void load(){list.removeAllViews();list.addView(Ui.body(this,"Loading creator applications…"));
-  db.collection("users").whereEqualTo("creatorApplicationStatus","pending").get()
-   .addOnSuccessListener(q->{list.removeAllViews();int shown=0;
-    for(DocumentSnapshot d:q.getDocuments()){String uid=d.getId();if(OWNER_ADMIN_UID.equals(uid))continue;shown++;
-     String name=d.getString("creatorName");if(name==null||name.isEmpty())name=d.getString("displayName");if(name==null)name="Creator";
-     LinearLayout card=Ui.card(this);card.addView(Ui.title(this,name));card.addView(Ui.body(this,"UID: "+uid+"\nCountry: "+String.valueOf(d.getString("country"))+"\nStatus: Pending"));
-     Button approve=Ui.button(this,"Approve Creator");Button reject=Ui.secondary(this,"Reject Application");card.addView(approve);card.addView(reject);
-     approve.setOnClickListener(v->setStatus(uid,"approved"));reject.setOnClickListener(v->setStatus(uid,"rejected"));list.addView(card);
-    }
-    if(shown==0)list.addView(Ui.body(this,"No pending creator applications found."));
-   }).addOnFailureListener(e->{list.removeAllViews();list.addView(Ui.body(this,"Could not load applications: "+e.getMessage()+"\nCheck Firestore security rules and admin permissions."));});
- }
- private void setStatus(String uid,String status){if(OWNER_ADMIN_UID.equals(uid)){Ui.toast(this,"Admin account cannot be reviewed as a creator");return;}Map<String,Object> m=new HashMap<>();m.put("creatorApplicationStatus",status);m.put("creatorStatus",status);m.put("creatorApproved","approved".equals(status));m.put("creatorApplicationReviewedAt",System.currentTimeMillis());
-  db.collection("users").document(uid).set(m,SetOptions.merge()).addOnSuccessListener(v->{Ui.toast(this,"Application "+status);load();}).addOnFailureListener(e->Ui.toast(this,"Update failed: "+e.getMessage()));
- }
+ private static final String OWNER_ADMIN_UID="cmnDofW7OcYP2FvTV2KA1uTARM22";
+ private LinearLayout list;private FirebaseFirestore db;private final Handler handler=new Handler(Looper.getMainLooper());
+ @Override public void onCreate(Bundle b){super.onCreate(b);if(!OWNER_ADMIN_UID.equals(FirebaseAuth.getInstance().getUid())){Toast.makeText(this,"Admin access denied",Toast.LENGTH_LONG).show();finish();return;}
+ db=FirebaseFirestore.getInstance();LinearLayout outer=Ui.root(this);outer.addView(Ui.backTitle(this,"Admin Creator Review"));Button refresh=Ui.secondary(this,"Refresh Applications");outer.addView(refresh);ScrollView scroll=new ScrollView(this);list=new LinearLayout(this);list.setOrientation(LinearLayout.VERTICAL);scroll.addView(list);outer.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));refresh.setOnClickListener(v->load());setContentView(outer);load();}
+ private void load(){list.removeAllViews();list.addView(Ui.body(this,"Loading creator applications…"));db.collection("users").whereEqualTo("creatorApplicationStatus","pending").get().addOnSuccessListener(q->{list.removeAllViews();int shown=0;
+ for(DocumentSnapshot d:q.getDocuments()){String uid=d.getId();if(OWNER_ADMIN_UID.equals(uid))continue;shown++;String name=d.getString("creatorName");if(name==null||name.isEmpty())name=d.getString("displayName");if(name==null)name="Creator";
+ LinearLayout card=Ui.card(this);card.addView(Ui.title(this,name));card.addView(Ui.body(this,"UID: "+uid+"\nAge: "+String.valueOf(d.get("creatorAge"))+"\nCountry: "+String.valueOf(d.getString("country"))+"\nIntroduction: "+String.valueOf(d.getString("creatorBio"))+"\nFace detected: "+String.valueOf(d.getBoolean("creatorFaceDetected"))+"\nStatus: Pending"));
+ ImageView photo=new ImageView(this);photo.setAdjustViewBounds(true);card.addView(photo,new LinearLayout.LayoutParams(-1,Ui.dp(this,220)));String path=d.getString("creatorSelfiePath");if(path!=null&&!path.isEmpty()){FirebaseStorage.getInstance().getReference().child(path).getDownloadUrl().addOnSuccessListener(uri->new Thread(()->{try{Bitmap bitmap=BitmapFactory.decodeStream(new URL(uri.toString()).openStream());handler.post(()->{if(bitmap!=null)photo.setImageBitmap(bitmap);else photo.setImageDrawable(null);});}catch(Exception ignored){handler.post(()->Ui.toast(this,"Could not load selfie image"));}}).start()).addOnFailureListener(e->Ui.toast(this,"Selfie unavailable. Check Storage rules."));}else{card.addView(Ui.body(this,"No selfie attached to this application."));}
+ Button approve=Ui.button(this,"Approve Creator");Button reject=Ui.secondary(this,"Reject Application");card.addView(approve);card.addView(reject);approve.setOnClickListener(v->setStatus(uid,"approved"));reject.setOnClickListener(v->setStatus(uid,"rejected"));list.addView(card);}
+ if(shown==0)list.addView(Ui.body(this,"No pending creator applications found."));
+ }).addOnFailureListener(e->{list.removeAllViews();list.addView(Ui.body(this,"Could not load applications. Check Firestore rules and admin permissions."));});}
+ private void setStatus(String uid,String status){if(OWNER_ADMIN_UID.equals(uid)){Ui.toast(this,"Admin account cannot be reviewed as creator");return;}Map<String,Object> m=new HashMap<>();m.put("creatorApplicationStatus",status);m.put("creatorStatus",status);m.put("creatorApproved","approved".equals(status));m.put("creatorApplicationReviewedAt",System.currentTimeMillis());db.collection("users").document(uid).set(m,SetOptions.merge()).addOnSuccessListener(v->{Ui.toast(this,"Application "+status);load();}).addOnFailureListener(e->Ui.toast(this,"Update failed. Check Firestore rules."));}
 }
