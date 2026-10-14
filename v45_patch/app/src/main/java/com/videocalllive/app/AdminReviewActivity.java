@@ -14,15 +14,17 @@ public class AdminReviewActivity extends Activity{
  }
  private void load(){list.removeAllViews();list.addView(Ui.body(this,"Loading creator applications…"));
   db.collection("users").whereEqualTo("creatorApplicationStatus","pending").get()
-   .addOnSuccessListener(q->{list.removeAllViews();if(q.isEmpty()){list.addView(Ui.body(this,"No pending applications found. Applications submitted by older app versions may exist only on that phone and must be resubmitted."));return;}
-    for(DocumentSnapshot d:q.getDocuments()){String uid=d.getId();String name=d.getString("creatorName");if(name==null||name.isEmpty())name=d.getString("displayName");if(name==null)name="Creator";
+   .addOnSuccessListener(q->{list.removeAllViews();int shown=0;
+    for(DocumentSnapshot d:q.getDocuments()){String uid=d.getId();if(OWNER_ADMIN_UID.equals(uid))continue;shown++;
+     String name=d.getString("creatorName");if(name==null||name.isEmpty())name=d.getString("displayName");if(name==null)name="Creator";
      LinearLayout card=Ui.card(this);card.addView(Ui.title(this,name));card.addView(Ui.body(this,"UID: "+uid+"\nCountry: "+String.valueOf(d.getString("country"))+"\nStatus: Pending"));
      Button approve=Ui.button(this,"Approve Creator");Button reject=Ui.secondary(this,"Reject Application");card.addView(approve);card.addView(reject);
      approve.setOnClickListener(v->setStatus(uid,"approved"));reject.setOnClickListener(v->setStatus(uid,"rejected"));list.addView(card);
     }
+    if(shown==0)list.addView(Ui.body(this,"No pending creator applications found."));
    }).addOnFailureListener(e->{list.removeAllViews();list.addView(Ui.body(this,"Could not load applications: "+e.getMessage()+"\nCheck Firestore security rules and admin permissions."));});
  }
- private void setStatus(String uid,String status){Map<String,Object> m=new HashMap<>();m.put("creatorApplicationStatus",status);m.put("creatorStatus",status);m.put("creatorApproved","approved".equals(status));m.put("creatorApplicationReviewedAt",System.currentTimeMillis());
+ private void setStatus(String uid,String status){if(OWNER_ADMIN_UID.equals(uid)){Ui.toast(this,"Admin account cannot be reviewed as a creator");return;}Map<String,Object> m=new HashMap<>();m.put("creatorApplicationStatus",status);m.put("creatorStatus",status);m.put("creatorApproved","approved".equals(status));m.put("creatorApplicationReviewedAt",System.currentTimeMillis());
   db.collection("users").document(uid).set(m,SetOptions.merge()).addOnSuccessListener(v->{Ui.toast(this,"Application "+status);load();}).addOnFailureListener(e->Ui.toast(this,"Update failed: "+e.getMessage()));
  }
 }
