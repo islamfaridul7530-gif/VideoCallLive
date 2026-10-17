@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+      - fix/payment-coin-balance
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -73,6 +78,21 @@ jobs:
           grep -n "OWNER_ADMIN_UID" "$PROJECT_DIR/app/src/main/java/com/videocalllive/app/CreatorApplicationActivity.java"
           grep -n "Coins purchase is available only" "$PROJECT_DIR/app/src/main/java/com/videocalllive/app/TopUpActivity.java"
 
+      - name: Patch Android coin balance and remove ₹15 test pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_android_coin_balance.py "$PROJECT_DIR"
+
+      - name: Inspect Android payment and coin-balance flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== Android source files ==="
+          find "$PROJECT_DIR/app/src" -type f \( -name '*.kt' -o -name '*.java' -o -name '*.xml' \) | sort | grep -Ei 'coin|payment|wallet|profile|home|firebase|main|activity|fragment' | head -120 || true
+          echo "=== Payment/balance references ==="
+          grep -RniE -C 4 'createCashfreeOrder|verifyCashfreePayment|getCoinBalance|paymentSessionId|coinBalance|CoinBalance|coins|Cashfree|Payment' "$PROJECT_DIR/app/src" --include='*.kt' --include='*.java' --include='*.xml' | head -650 || true
+
       - name: Build release APK
         shell: bash
         run: |
@@ -125,5 +145,20 @@ jobs:
         with:
           name: VideoCallLive-V45-Admin-Coins-Fix
           path: signed/VideoCallLive-V45.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Package patched Android source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          zip -qr "$GITHUB_WORKSPACE/VideoCallLive-Android-Source-Patched.zip" . -x "*/build/*" "*/.gradle/*" ".gradle/*"
+
+      - name: Upload patched Android source
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoCallLive-Android-Source-Patched
+          path: VideoCallLive-Android-Source-Patched.zip
           if-no-files-found: error
           retention-days: 30

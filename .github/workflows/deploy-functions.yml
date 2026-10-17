@@ -40,12 +40,51 @@ jobs:
       - name: Set Cashfree Firebase secrets
         shell: bash
         env:
+          CASHFREE_ENVIRONMENT: ${{ secrets.CASHFREE_ENVIRONMENT }}
           CASHFREE_APP_ID: ${{ secrets.CASHFREE_APP_ID }}
           CASHFREE_SECRET_KEY: ${{ secrets.CASHFREE_SECRET_KEY }}
+          CASHFREE_LIVE_APP_ID: ${{ secrets.CASHFREE_LIVE_APP_ID }}
+          CASHFREE_LIVE_SECRET_KEY: ${{ secrets.CASHFREE_LIVE_SECRET_KEY }}
         run: |
-          printf '%s' "$CASHFREE_APP_ID" | firebase functions:secrets:set CASHFREE_APP_ID --project videocalllive-bcd7c --data-file=-
+          set -euo pipefail
 
-          printf '%s' "$CASHFREE_SECRET_KEY" | firebase functions:secrets:set CASHFREE_SECRET_KEY --project videocalllive-bcd7c --data-file=-
+          MODE="${CASHFREE_ENVIRONMENT:-sandbox}"
+          if [[ "$MODE" != "sandbox" && "$MODE" != "live" ]]; then
+            echo "CASHFREE_ENVIRONMENT must be sandbox or live"
+            exit 1
+          fi
+
+          if [[ "$MODE" == "live" ]]; then
+            APP_ID="$CASHFREE_LIVE_APP_ID"
+            SECRET_KEY="$CASHFREE_LIVE_SECRET_KEY"
+            if [[ -z "$APP_ID" || -z "$SECRET_KEY" ]]; then
+              echo "Live mode selected, but CASHFREE_LIVE_APP_ID or CASHFREE_LIVE_SECRET_KEY is missing."
+              exit 1
+            fi
+          else
+            APP_ID="$CASHFREE_APP_ID"
+            SECRET_KEY="$CASHFREE_SECRET_KEY"
+            if [[ -z "$APP_ID" || -z "$SECRET_KEY" ]]; then
+              echo "Sandbox mode selected, but CASHFREE_APP_ID or CASHFREE_SECRET_KEY is missing."
+              exit 1
+            fi
+          fi
+
+          printf '%s' "$APP_ID" | firebase functions:secrets:set CASHFREE_APP_ID --project videocalllive-bcd7c --data-file=-
+          printf '%s' "$SECRET_KEY" | firebase functions:secrets:set CASHFREE_SECRET_KEY --project videocalllive-bcd7c --data-file=-
+
+      - name: Configure Cashfree environment parameter
+        shell: bash
+        env:
+          CASHFREE_ENVIRONMENT: ${{ secrets.CASHFREE_ENVIRONMENT }}
+        run: |
+          set -euo pipefail
+          MODE="${CASHFREE_ENVIRONMENT:-sandbox}"
+          if [[ "$MODE" != "sandbox" && "$MODE" != "live" ]]; then
+            echo "CASHFREE_ENVIRONMENT must be sandbox or live"
+            exit 1
+          fi
+          printf 'CASHFREE_ENVIRONMENT=%s\n' "$MODE" > .env.videocalllive-bcd7c
 
       - name: Deploy Firebase Functions
         run: firebase deploy --only functions --project videocalllive-bcd7c --non-interactive --force
