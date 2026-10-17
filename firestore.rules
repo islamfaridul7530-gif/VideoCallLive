@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isChatParticipant(data) {
+      return signedIn()
+        && data.keys().hasAny(['participants'])
+        && data.participants is list
+        && request.auth.uid in data.participants;
+    }
+
+    // Public profile discovery is restricted to authenticated app users.
+    // Users may only create/update their own user document.
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create: if isSelf(uid);
+      allow update: if isSelf(uid);
+      allow delete: if false;
+    }
+
+    // Chat documents must explicitly list participant UIDs.
+    match /chats/{chatId} {
+      allow read: if isChatParticipant(resource.data);
+      allow create: if isChatParticipant(request.resource.data);
+      allow update: if isChatParticipant(resource.data)
+                    && isChatParticipant(request.resource.data);
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function parentChat() {
+          return get(/databases/$(database)/documents/chats/$(chatId)).data;
+        }
+        allow read: if isChatParticipant(parentChat());
+        allow create: if isChatParticipant(parentChat())
+                      && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    // Call records are accessible only to listed participants.
+    match /calls/{callId} {
+      allow read: if isChatParticipant(resource.data);
+      allow create: if isChatParticipant(request.resource.data);
+      allow update: if isChatParticipant(resource.data)
+                    && isChatParticipant(request.resource.data);
+      allow delete: if false;
+    }
+
+    // Payment orders are created/updated by trusted Cloud Functions only.
+    match /paymentOrders/{orderId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Users can create a support ticket for themselves and read their own.
+    match /supportTickets/{ticketId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Deny all other documents unless a specific rule above permits access.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
