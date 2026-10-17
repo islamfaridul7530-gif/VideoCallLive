@@ -50,7 +50,7 @@ jobs:
           from pathlib import Path
           p = Path("$PROJECT_DIR/app/src/main/java/com/videocalllive/app/MainActivity.java")
           s = p.read_text()
-          old = "                FirebaseHelper.restoreProfile(this);\\n                return;"
+          old = "                FirebaseHelper.restoreProfile(this);\n                return;"
           new = "                FirebaseHelper.restoreProfile(this);"
           if old not in s:
               raise SystemExit("Expected MainActivity restoreProfile block not found; refusing unsafe patch")
