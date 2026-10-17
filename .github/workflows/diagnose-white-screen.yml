@@ -1,0 +1,59 @@
+name: Diagnose V45 White Screen
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/diagnose-white-screen.yml"
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Inspect V44 source and V45 startup configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p diagnostic extracted
+          unzip -q "VideoCallLive-PAYMENT-TEST-15-FINAL.zip" -d extracted
+          PROJECT_DIR="$(find extracted -type f -name settings.gradle -printf '%h\\n' | head -n 1)"
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERROR: settings.gradle not found in V44 ZIP" > diagnostic/report.txt
+            find extracted -maxdepth 6 -type f >> diagnostic/report.txt
+          else
+            {
+              echo "PROJECT_DIR=$PROJECT_DIR"
+              echo
+              echo "=== V44 AndroidManifest.xml ==="
+              cat "$PROJECT_DIR/app/src/main/AndroidManifest.xml" || true
+              echo
+              echo "=== V45 replacement AndroidManifest.xml ==="
+              cat v45_patch/app/src/main/AndroidManifest.xml
+              echo
+              echo "=== Startup-related Java/Kotlin files in V44 ==="
+              find "$PROJECT_DIR/app/src/main" -type f \( -name '*MainActivity*' -o -name '*CrashApplication*' -o -name '*HomeActivity*' -o -name '*LoginActivity*' -o -name '*GenderActivity*' \) -print
+              echo
+              echo "=== App source file listing ==="
+              find "$PROJECT_DIR/app/src/main" -type f \( -name '*.java' -o -name '*.kt' \) | sort
+              echo
+              echo "=== References to CrashApplication / WebView / FirebaseApp ==="
+              grep -RniE 'CrashApplication|WebView|FirebaseApp.initializeApp|setContentView|onCreate\(' "$PROJECT_DIR/app/src/main" --include='*.java' --include='*.kt' | head -250 || true
+              echo
+              echo "=== Resource/theme references from V45 Manifest ==="
+              grep -RniE 'Theme.VideoCallLive|ic_video_call|app_name' "$PROJECT_DIR/app/src/main" | head -100 || true
+            } > diagnostic/report.txt
+          fi
+          cat diagnostic/report.txt
+
+      - name: Upload diagnostic report
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoCallLive-WhiteScreen-Diagnostics
+          path: diagnostic/report.txt
+          if-no-files-found: error
+          retention-days: 7
