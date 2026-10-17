@@ -44,6 +44,19 @@ jobs:
 
           cp -f v45_patch/app/build.gradle "$PROJECT_DIR/app/build.gradle"
           cp -f v45_patch/app/src/main/AndroidManifest.xml "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          # FIX: keep the launch screen visible while asynchronous Firestore profile restore runs.
+          # Previously MainActivity returned before setContentView; if Firestore failed, users saw a blank white screen.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("$PROJECT_DIR/app/src/main/java/com/videocalllive/app/MainActivity.java")
+          s = p.read_text()
+          old = "                FirebaseHelper.restoreProfile(this);\\n                return;"
+          new = "                FirebaseHelper.restoreProfile(this);"
+          if old not in s:
+              raise SystemExit("Expected MainActivity restoreProfile block not found; refusing unsafe patch")
+          p.write_text(s.replace(old, new, 1))
+          print("Applied startup white-screen fix to MainActivity.java")
+          PY
           mkdir -p "$PROJECT_DIR/app/src/main/java/com/videocalllive/app"
           cp -f v45_patch/app/src/main/java/com/videocalllive/app/CreatorApplicationActivity.java "$PROJECT_DIR/app/src/main/java/com/videocalllive/app/CreatorApplicationActivity.java"
           cp -f v45_patch/app/src/main/java/com/videocalllive/app/TopUpActivity.java "$PROJECT_DIR/app/src/main/java/com/videocalllive/app/TopUpActivity.java"
