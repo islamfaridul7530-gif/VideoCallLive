@@ -21,7 +21,7 @@ jobs:
           set -euo pipefail
           mkdir -p diagnostic extracted
           unzip -q "VideoCallLive-PAYMENT-TEST-15-FINAL.zip" -d extracted
-          PROJECT_DIR="$(find extracted -type f -name settings.gradle -printf '%h\\n' | head -n 1)"
+          PROJECT_DIR="$(find extracted -type f -name settings.gradle -printf '%h\n' | head -n 1)"
           if [ -z "$PROJECT_DIR" ]; then
             echo "ERROR: settings.gradle not found in V44 ZIP" > diagnostic/report.txt
             find extracted -maxdepth 6 -type f >> diagnostic/report.txt
