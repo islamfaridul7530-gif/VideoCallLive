@@ -38,6 +38,15 @@ jobs:
               echo "=== Startup-related Java/Kotlin files in V44 ==="
               find "$PROJECT_DIR/app/src/main" -type f \( -name '*MainActivity*' -o -name '*CrashApplication*' -o -name '*HomeActivity*' -o -name '*LoginActivity*' -o -name '*GenderActivity*' \) -print
               echo
+              echo "=== MainActivity.java ==="
+              cat "$PROJECT_DIR/app/src/main/java/com/videocalllive/app/MainActivity.java" || true
+              echo
+              echo "=== CrashApplication.java ==="
+              cat "$PROJECT_DIR/app/src/main/java/com/videocalllive/app/CrashApplication.java" || true
+              echo
+              echo "=== app/build.gradle ==="
+              cat "$PROJECT_DIR/app/build.gradle" || true
+              echo
               echo "=== App source file listing ==="
               find "$PROJECT_DIR/app/src/main" -type f \( -name '*.java' -o -name '*.kt' \) | sort
               echo
