@@ -48,7 +48,9 @@ jobs:
           # Previously MainActivity returned before setContentView; if Firestore failed, users saw a blank white screen.
           python3 - <<'PY'
           from pathlib import Path
-          p = Path("$PROJECT_DIR/app/src/main/java/com/videocalllive/app/MainActivity.java")
+          p = next(Path("extracted").rglob("MainActivity.java"), None)
+          if p is None:
+              raise SystemExit("MainActivity.java not found under extracted V44 project")
           s = p.read_text()
           old = "                FirebaseHelper.restoreProfile(this);\n                return;"
           new = "                FirebaseHelper.restoreProfile(this);"
