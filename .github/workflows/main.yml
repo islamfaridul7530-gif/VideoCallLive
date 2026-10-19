@@ -295,6 +295,7 @@ jobs:
           new = 'photosKey(),s.toString()'
           if old not in s:
               raise SystemExit("PhotoManagerActivity shared photo write key missing")
+          s = s.replace(old, new, 1)
           marker = ' ArrayList<String> getPhotos()'
           if marker not in s:
               raise SystemExit("PhotoManagerActivity getPhotos method missing")
