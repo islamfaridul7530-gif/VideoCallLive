@@ -255,7 +255,8 @@ jobs:
               '        getSharedPreferences("vcl", 0).edit().remove("account_uid").remove("gender").remove("profile_name").remove("profile_country").remove("profile_bio").remove("profile_age").remove("profile_complete_local").remove("creator_status").remove("creator_name").remove("creator_country").remove("creator_bio").remove("creator_rate").remove("creator_profile_complete").apply();',
               '    }',
               ''
-          ]) + "\n"          if marker not in s:
+          ]) + "\n"
+          if marker not in s:
               raise SystemExit("MainActivity insertion point missing")
           s = s.replace(marker, methods + marker, 1)
           oldq = '''getSharedPreferences("vcl",0).edit().putBoolean("quick",true).apply();
@@ -331,6 +332,21 @@ jobs:
               raise SystemExit("ChatActivity setup diagnostic did not match")
           p.write_text(s.replace(old, new, 1))
           print("V49 account-scoped photo storage, clean account restore, startup loading screen, and UID chat diagnostics applied.")
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          root = Path("extracted")
+          src = next(root.rglob("app/src/main/java"), None)
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if not src or not gradle:
+              raise SystemExit("Updated source directory or build.gradle not found")
+          out = Path("/tmp/VideoCallLive-V49-Source-Diagnostics.zip")
+          with ZipFile(out, "w", ZIP_DEFLATED) as z:
+              for p in src.rglob("*.java"):
+                  z.write(p, p.relative_to(src.parent.parent.parent))
+              z.write(gradle, "app/build.gradle")
+          print(f"Created updated V49 source archive: {out}")
           PY
           sed -i 's/VideoCallLive-V47-aligned.apk/VideoCallLive-V49-aligned.apk/g; s/VideoCallLive-V47.apk/VideoCallLive-V49.apk/g' .github/workflows/main.yml
 
