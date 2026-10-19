@@ -326,7 +326,7 @@ jobs:
           p = find("ChatActivity.java")
           s = p.read_text()
           old = 'Ui.toast(this,"Chat setup failed: "+e.getMessage())'
-          new = 'Ui.toast(this,"Chat setup failed ("+e.getCode()+"): "+e.getMessage()+" UID="+me+" room="+room)'
+          new = 'Ui.toast(this,"Chat setup failed: "+e.getMessage()+" UID="+me+" room="+room)'
           if old not in s:
               raise SystemExit("ChatActivity setup diagnostic did not match")
           p.write_text(s.replace(old, new, 1))
