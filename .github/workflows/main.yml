@@ -221,13 +221,13 @@ jobs:
           p = find("MainActivity.java")
           s = p.read_text()
           old = '''if (FirebaseHelper.ready(this) && FirebaseAuth.getInstance().getCurrentUser() != null) {
-                  FirebaseHelper.restoreProfile(this);
-              }'''
+                FirebaseHelper.restoreProfile(this);
+            }'''
           new = '''if (FirebaseHelper.ready(this) && FirebaseAuth.getInstance().getCurrentUser() != null) {
-                  showRestoreLoading();
-                  FirebaseHelper.restoreProfile(this);
-                  return;
-              }'''
+                showRestoreLoading();
+                FirebaseHelper.restoreProfile(this);
+                return;
+            }'''
           if old not in s:
               raise SystemExit("MainActivity saved-session block did not match")
           s = s.replace(old, new, 1)
