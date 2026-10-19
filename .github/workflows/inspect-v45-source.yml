@@ -1,0 +1,25 @@
+name: Inspect V45 Android Source
+on:
+  workflow_dispatch:
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract base Android source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir extracted
+          unzip -q VideoCallLive-PAYMENT-TEST-15-FINAL.zip -d extracted
+          PROJECT_DIR="$(find extracted -type f -name settings.gradle -printf '%h\n' | head -n 1)"
+          test -n "$PROJECT_DIR"
+          mkdir -p inspect
+          find "$PROJECT_DIR/app/src/main" -type f \( -name '*.java' -o -name '*.xml' \) -print0 | tar --null -T - -czf inspect/android-source.tgz
+          grep -RniE 'Real Profiles|collection\("users"\)|collection\("chats"\)|PERMISSION_DENIED|participants|senderId|currentUser|FirebaseAuth' "$PROJECT_DIR/app/src/main/java" > inspect/source-search.txt || true
+          printf 'PROJECT_DIR=%s\n' "$PROJECT_DIR" > inspect/project-location.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: V45-Android-Source-Inspection
+          path: inspect/
+          retention-days: 7
