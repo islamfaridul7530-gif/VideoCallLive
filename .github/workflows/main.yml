@@ -207,7 +207,9 @@ jobs:
                   raise SystemExit(f"{name} not found; refusing unsafe patch")
               return p
 
-          gradle = find("build.gradle")
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if gradle is None:
+              raise SystemExit("app/build.gradle not found")
           g = gradle.read_text()
           if 'versionCode 48' not in g or 'versionName "48.0-arm-apk-size-optimization"' not in g:
               raise SystemExit("Expected V48 version markers not found")
@@ -342,7 +344,7 @@ jobs:
       - name: Upload source diagnostics for code review
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V48-Source-Diagnostics
+          name: VideoCallLive-V49-Source-Diagnostics
           path: /tmp/VideoCallLive-V49-Source-Diagnostics.zip
           if-no-files-found: error
           retention-days: 7
@@ -385,14 +387,14 @@ jobs:
           mkdir -p signed
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
           "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V49-aligned.apk
-          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V49.apk             signed/VideoCallLive-V47-aligned.apk
+          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V49.apk             signed/VideoCallLive-V49-aligned.apk
 
       - name: Verify signed APK
         shell: bash
         run: |
           set -euo pipefail
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V47.apk
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V49.apk
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
