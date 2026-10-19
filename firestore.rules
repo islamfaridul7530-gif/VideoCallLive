@@ -25,16 +25,27 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Chat documents must explicitly list participant UIDs.
+    // Chat documents must list exactly the two UIDs represented by the deterministic room ID.
+    // This also lets a participant repair a legacy chat document that predates the participants field,
+    // without granting access to arbitrary chat documents.
+    function validChatId(chatId, data) {
+      return data.keys().hasAny(['participants'])
+        && data.participants is list
+        && data.participants.size() == 2
+        && (
+          chatId == data.participants[0] + '_' + data.participants[1]
+          || chatId == data.participants[1] + '_' + data.participants[0]
+        );
+    }
+
     match /chats/{chatId} {
-      // Explicit get/list predicate is compatible with the app's
-      // whereArrayContains("participants", currentUid) conversation query.
-      allow get, list: if signedIn()
-                       && resource.data.participants is list
-                       && request.auth.uid in resource.data.participants;
-      allow create: if isChatParticipant(request.resource.data);
-      allow update: if isChatParticipant(resource.data)
-                    && isChatParticipant(request.resource.data);
+      allow get, list: if isChatParticipant(resource.data);
+      allow create: if isChatParticipant(request.resource.data)
+                    && validChatId(chatId, request.resource.data);
+      allow update: if isChatParticipant(request.resource.data)
+                    && validChatId(chatId, request.resource.data)
+                    && (isChatParticipant(resource.data)
+                        || !resource.data.keys().hasAny(['participants']));
       allow delete: if false;
 
       match /messages/{messageId} {
