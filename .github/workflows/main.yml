@@ -140,7 +140,7 @@ jobs:
                   if(q==null)return;lastMessages=q;renderMessages();
                 });
             })
-            .addOnFailureListener(e->Ui.toast(this,"Chat setup failed ("+e.getCode()+"): "+e.getMessage()));'''
+            .addOnFailureListener(e->Ui.toast(this,"Chat setup failed: "+e.getMessage()));'''
           if old not in s:
               raise SystemExit("ChatActivity message listener block did not match expected source")
           chat.write_text(s.replace(old,new,1))
