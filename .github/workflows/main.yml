@@ -276,6 +276,12 @@ jobs:
           if needle not in tail:
               raise SystemExit("FirebaseHelper restoreProfile UID line missing")
           p.write_text(head + tail.replace(needle, clear, 1))
+          s = p.read_text()
+          old = '   .addOnSuccessListener(doc->{\n    if(a.isFinishing())return;'
+          new = '   .addOnSuccessListener(doc->{\n    if(a.isFinishing())return;\n    android.content.SharedPreferences local=a.getSharedPreferences("vcl",0);\n    String scopedPhotos=local.getString("profile_photos_"+uid,"");\n    String legacyPhotos=local.getString("profile_photos","");\n    boolean staleSharedPhoto=FirebaseAuth.getInstance().getCurrentUser().isAnonymous()&&(scopedPhotos==null||scopedPhotos.isEmpty())&&legacyPhotos!=null&&!legacyPhotos.isEmpty();\n    if(staleSharedPhoto&&doc.exists()&&(doc.getString("photoData")!=null||doc.getString("photoUrl")!=null)){\n      doc.getReference().update("photoData",com.google.firebase.firestore.FieldValue.delete(),"photoUrl",com.google.firebase.firestore.FieldValue.delete()).addOnSuccessListener(v->restoreProfile(a));\n      return;\n    }'
+          if old not in s:
+              raise SystemExit("FirebaseHelper profile restore listener did not match")
+          p.write_text(s.replace(old, new, 1))
 
           # Keep local photo lists under the signed-in UID, not one shared key for every account on this phone.
           p = find("PhotoManagerActivity.java")
