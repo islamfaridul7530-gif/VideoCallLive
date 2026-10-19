@@ -232,38 +232,30 @@ jobs:
               raise SystemExit("MainActivity saved-session block did not match")
           s = s.replace(old, new, 1)
           marker = '    private void saveAndShow(Throwable e) {'
-          methods = '''    private void showRestoreLoading() {
-            LinearLayout r = Ui.root(this);
-            r.addView(Ui.title(this, "Video Call Live"));
-            r.addView(Ui.body(this, "Restoring your saved account..."));
-            Button retry = Ui.button(this, "Retry");
-            retry.setOnClickListener(v -> FirebaseHelper.restoreProfile(this));
-            Button switchAccount = Ui.secondary(this, "Sign out and Login");
-            switchAccount.setOnClickListener(v -> {
-                FirebaseAuth.getInstance().signOut();
-                getSharedPreferences("vcl", 0).edit()
-                    .remove("account_uid").remove("gender").remove("profile_name")
-                    .remove("profile_country").remove("profile_bio").remove("profile_age")
-                    .remove("profile_complete_local").apply();
-                startActivity(new Intent(this, MainActivity.class));
-                finish();
-            });
-            r.addView(retry);
-            r.addView(switchAccount);
-            setContentView(r);
-        }
-
-        private void clearOldProfileCache() {
-            getSharedPreferences("vcl", 0).edit()
-                .remove("account_uid").remove("gender").remove("profile_name")
-                .remove("profile_country").remove("profile_bio").remove("profile_age")
-                .remove("profile_complete_local").remove("creator_status")
-                .remove("creator_name").remove("creator_country").remove("creator_bio")
-                .remove("creator_rate").remove("creator_profile_complete").apply();
-        }
-
-'''
-          if marker not in s:
+          methods = "\n".join([
+              '    private void showRestoreLoading() {',
+              '        LinearLayout r = Ui.root(this);',
+              '        r.addView(Ui.title(this, "Video Call Live"));',
+              '        r.addView(Ui.body(this, "Restoring your saved account..."));',
+              '        Button retry = Ui.button(this, "Retry");',
+              '        retry.setOnClickListener(v -> FirebaseHelper.restoreProfile(this));',
+              '        Button switchAccount = Ui.secondary(this, "Sign out and Login");',
+              '        switchAccount.setOnClickListener(v -> {',
+              '            FirebaseAuth.getInstance().signOut();',
+              '            getSharedPreferences("vcl", 0).edit().remove("account_uid").remove("gender").remove("profile_name").remove("profile_country").remove("profile_bio").remove("profile_age").remove("profile_complete_local").apply();',
+              '            startActivity(new Intent(this, MainActivity.class));',
+              '            finish();',
+              '        });',
+              '        r.addView(retry);',
+              '        r.addView(switchAccount);',
+              '        setContentView(r);',
+              '    }',
+              '',
+              '    private void clearOldProfileCache() {',
+              '        getSharedPreferences("vcl", 0).edit().remove("account_uid").remove("gender").remove("profile_name").remove("profile_country").remove("profile_bio").remove("profile_age").remove("profile_complete_local").remove("creator_status").remove("creator_name").remove("creator_country").remove("creator_bio").remove("creator_rate").remove("creator_profile_complete").apply();',
+              '    }',
+              ''
+          ]) + "\n"          if marker not in s:
               raise SystemExit("MainActivity insertion point missing")
           s = s.replace(marker, methods + marker, 1)
           oldq = '''getSharedPreferences("vcl",0).edit().putBoolean("quick",true).apply();
@@ -279,31 +271,32 @@ jobs:
           # Every profile restore clears global profile fields first so a previous account cannot leak into the next one.
           p = find("FirebaseHelper.java")
           s = p.read_text()
-          old = '''  String uid=FirebaseAuth.getInstance().getUid();
-  FirebaseFirestore.getInstance().collection("users").document(uid).get()'''
-          new = '''  String uid=FirebaseAuth.getInstance().getUid();
-  a.getSharedPreferences("vcl",0).edit()
-   .remove("account_uid").remove("gender").remove("profile_name")
-   .remove("profile_country").remove("profile_bio").remove("profile_age")
-   .remove("profile_complete_local").remove("creator_status")
-   .remove("creator_name").remove("creator_country").remove("creator_bio")
-   .remove("creator_rate").remove("creator_profile_complete").apply();
-  FirebaseFirestore.getInstance().collection("users").document(uid).get()'''
-          if old not in s:
-              raise SystemExit("FirebaseHelper restoreProfile insertion point missing")
-          p.write_text(s.replace(old, new, 1))
+          marker = "public static void restoreProfile(Activity a)"
+          idx = s.index(marker)
+          head, tail = s[:idx], s[idx:]
+          needle = 'String uid=FirebaseAuth.getInstance().getUid();'
+          clear = 'String uid=FirebaseAuth.getInstance().getUid();a.getSharedPreferences("vcl",0).edit().remove("account_uid").remove("gender").remove("profile_name").remove("profile_country").remove("profile_bio").remove("profile_age").remove("profile_complete_local").remove("creator_status").remove("creator_name").remove("creator_country").remove("creator_bio").remove("creator_rate").remove("creator_profile_complete").apply();'
+          if needle not in tail:
+              raise SystemExit("FirebaseHelper restoreProfile UID line missing")
+          p.write_text(head + tail.replace(needle, clear, 1))
 
           # Keep local photo lists under the signed-in UID, not one shared key for every account on this phone.
           p = find("PhotoManagerActivity.java")
           s = p.read_text()
-          old = ''' ArrayList<String> getPhotos(){ArrayList<String>a=new ArrayList<>();String s=p.getString("profile_photos","");if(!s.isEmpty())for(String x:s.split("\\\\|\\\\|"))if(!x.isEmpty())a.add(x);return a;}
- void save(ArrayList<String>a){StringBuilder s=new StringBuilder();for(String x:a){if(s.length()>0)s.append("||");s.append(x);}p.edit().putString("profile_photos",s.toString()).apply();}'''
-          new = ''' String photosKey(){String uid=FirebaseAuth.getInstance().getUid();return uid==null?"profile_photos_unassigned":"profile_photos_"+uid;}
- ArrayList<String> getPhotos(){ArrayList<String>a=new ArrayList<>();String s=p.getString(photosKey(),"");if(!s.isEmpty())for(String x:s.split("\\\\|\\\\|"))if(!x.isEmpty())a.add(x);return a;}
- void save(ArrayList<String>a){StringBuilder s=new StringBuilder();for(String x:a){if(s.length()>0)s.append("||");s.append(x);}p.edit().putString(photosKey(),s.toString()).apply();}'''
+          old = 'p.getString("profile_photos","")'
+          new = 'p.getString(photosKey(),"")'
           if old not in s:
-              raise SystemExit("PhotoManagerActivity photo preference block did not match")
-          p.write_text(s.replace(old, new, 1))
+              raise SystemExit("PhotoManagerActivity shared photo read key missing")
+          s = s.replace(old, new, 1)
+          old = 'p.edit().putString("profile_photos",s.toString()).apply()'
+          new = 'p.edit().putString(photosKey(),s.toString()).apply()'
+          if old not in s:
+              raise SystemExit("PhotoManagerActivity shared photo write key missing")
+          marker = ' ArrayList<String> getPhotos()'
+          if marker not in s:
+              raise SystemExit("PhotoManagerActivity getPhotos method missing")
+          s = s.replace(marker, ' String photosKey(){String uid=FirebaseAuth.getInstance().getUid();return uid==null?"profile_photos_unassigned":"profile_photos_"+uid;}\n'+marker, 1)
+          p.write_text(s)
 
           p = find("MyProfileActivity.java")
           s = p.read_text()
