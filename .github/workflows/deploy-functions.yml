@@ -2,6 +2,14 @@ name: Deploy Firebase Functions
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'firestore.rules'
+      - 'firebase.json'
+      - 'functions/**'
+      - 'index.js'
+      - '.github/workflows/deploy-functions.yml'
 
 jobs:
   deploy:
