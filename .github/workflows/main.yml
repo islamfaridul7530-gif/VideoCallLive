@@ -285,8 +285,8 @@ jobs:
           if old not in s:
               raise SystemExit("PhotoManagerActivity shared photo read key missing")
           s = s.replace(old, new, 1)
-          old = 'p.edit().putString("profile_photos",s.toString()).apply()'
-          new = 'p.edit().putString(photosKey(),s.toString()).apply()'
+          old = '"profile_photos",s.toString()'
+          new = 'photosKey(),s.toString()'
           if old not in s:
               raise SystemExit("PhotoManagerActivity shared photo write key missing")
           marker = ' ArrayList<String> getPhotos()'
