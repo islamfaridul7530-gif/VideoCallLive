@@ -400,6 +400,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: VideoCallLive-V49-Account-Isolation-Chat-Fix
-          path: signed/VideoCallLive-V47.apk
+          path: signed/VideoCallLive-V49.apk
           if-no-files-found: error
           retention-days: 30
