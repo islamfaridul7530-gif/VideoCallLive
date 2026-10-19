@@ -220,17 +220,17 @@ jobs:
           # Do not briefly show the login options while a saved Firebase account is being restored.
           p = find("MainActivity.java")
           s = p.read_text()
-          old = '''if (FirebaseHelper.ready(this) && FirebaseAuth.getInstance().getCurrentUser() != null) {
-                FirebaseHelper.restoreProfile(this);
-            }'''
-          new = '''if (FirebaseHelper.ready(this) && FirebaseAuth.getInstance().getCurrentUser() != null) {
+          import re
+          pattern = r'if \(FirebaseHelper\.ready\(this\) && FirebaseAuth\.getInstance\(\)\.getCurrentUser\(\) != null\) \{\s*FirebaseHelper\.restoreProfile\(this\);\s*\}'
+          replacement = '''if (FirebaseHelper.ready(this) && FirebaseAuth.getInstance().getCurrentUser() != null) {
                 showRestoreLoading();
                 FirebaseHelper.restoreProfile(this);
                 return;
             }'''
-          if old not in s:
+          s, count = re.subn(pattern, lambda _: replacement, s, count=1)
+          if count != 1:
               raise SystemExit("MainActivity saved-session block did not match")
-          s = s.replace(old, new, 1)
+
           marker = '    private void saveAndShow(Throwable e) {'
           methods = "\n".join([
               '    private void showRestoreLoading() {',
@@ -259,14 +259,10 @@ jobs:
           if marker not in s:
               raise SystemExit("MainActivity insertion point missing")
           s = s.replace(marker, methods + marker, 1)
-          oldq = '''getSharedPreferences("vcl",0).edit().putBoolean("quick",true).apply();
-                            startActivity(new Intent(this, GenderActivity.class));'''
-          newq = '''clearOldProfileCache();
-                            getSharedPreferences("vcl",0).edit().putBoolean("quick",true).apply();
-                            startActivity(new Intent(this, GenderActivity.class));'''
-          if oldq not in s:
-              raise SystemExit("MainActivity Quick Login cache block did not match")
-          s = s.replace(oldq, newq, 1)
+          needle = 'getSharedPreferences("vcl",0).edit().putBoolean("quick",true).apply();'
+          if needle not in s:
+              raise SystemExit("MainActivity Quick Login cache line missing")
+          s = s.replace(needle, 'clearOldProfileCache();'+needle, 1)
           p.write_text(s)
 
           # Every profile restore clears global profile fields first so a previous account cannot leak into the next one.
@@ -301,10 +297,10 @@ jobs:
 
           p = find("MyProfileActivity.java")
           s = p.read_text()
-          old = ''' ArrayList<String> photos(){ArrayList<String>a=new ArrayList<>();String s=p.getString("profile_photos","");if(!s.isEmpty())for(String x:s.split("\\\\|\\\\|"))if(!x.isEmpty())a.add(x);return a;}'''
-          new = ''' ArrayList<String> photos(){ArrayList<String>a=new ArrayList<>();String uid=FirebaseAuth.getInstance().getUid();String s=p.getString(uid==null?"profile_photos_unassigned":"profile_photos_"+uid,"");if(!s.isEmpty())for(String x:s.split("\\\\|\\\\|"))if(!x.isEmpty())a.add(x);return a;}'''
+          old = 'String s=p.getString("profile_photos","");'
+          new = 'String uid=FirebaseAuth.getInstance().getUid();String s=p.getString(uid==null?"profile_photos_unassigned":"profile_photos_"+uid,"");'
           if old not in s:
-              raise SystemExit("MyProfileActivity photo preference block did not match")
+              raise SystemExit("MyProfileActivity shared photo key missing")
           p.write_text(s.replace(old, new, 1))
 
           p = find("ProfilePhotoSync.java")
