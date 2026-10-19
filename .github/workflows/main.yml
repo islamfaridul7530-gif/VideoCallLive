@@ -1,4 +1,4 @@
-name: Build V46 Home Profile Dedup Fix
+name: Build V47 Chat Permission Fix
 
 on:
   push:
@@ -105,6 +105,56 @@ jobs:
           grep -n "OWNER_ADMIN_UID" "$PROJECT_DIR/app/src/main/java/com/videocalllive/app/CreatorApplicationActivity.java"
           grep -n "Coins purchase is available only" "$PROJECT_DIR/app/src/main/java/com/videocalllive/app/TopUpActivity.java"
 
+      - name: Apply V47 chat initialization and diagnostics fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          chat = next(root.rglob("ChatActivity.java"), None)
+          messages = next(root.rglob("MessagesActivity.java"), None)
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if not chat or not messages or not gradle:
+              raise SystemExit("V47 patch source files not found")
+          g = gradle.read_text()
+          if 'versionCode 46' not in g or 'versionName "46.0-profile-dedup-chat-rules"' not in g:
+              raise SystemExit("Expected V46 version markers not found")
+          gradle.write_text(g.replace('versionCode 46', 'versionCode 47', 1).replace('versionName "46.0-profile-dedup-chat-rules"', 'versionName "47.0-chat-initialization-fix"', 1))
+
+          s = chat.read_text()
+          old = 'send.setOnClickListener(v->send());reg=db.collection("chats").document(room).collection("messages").orderBy("createdAt",Query.Direction.ASCENDING).limitToLast(150).addSnapshotListener((q,e)->{if(e!=null){Ui.toast(this,"Chat unavailable: "+e.getMessage());return;}if(q==null)return;lastMessages=q;renderMessages();});'
+          new = '''send.setOnClickListener(v->send());
+          // Ensure the parent chat document exists before listening to its messages.
+          // Firestore message rules read the parent chat to verify participants.
+          Map<String,Object> initialChat=new HashMap<>();
+          initialChat.put("participants",Arrays.asList(me,other));
+          initialChat.put("updatedAt",System.currentTimeMillis());
+          db.collection("chats").document(room).set(initialChat,SetOptions.merge())
+            .addOnSuccessListener(x->{
+              if(isFinishing()||isDestroyed())return;
+              reg=db.collection("chats").document(room).collection("messages")
+                .orderBy("createdAt",Query.Direction.ASCENDING).limitToLast(150)
+                .addSnapshotListener((q,e)->{
+                  if(e!=null){Ui.toast(this,"Chat unavailable ("+e.getCode()+"): "+e.getMessage());return;}
+                  if(q==null)return;lastMessages=q;renderMessages();
+                });
+            })
+            .addOnFailureListener(e->Ui.toast(this,"Chat setup failed ("+e.getCode()+"): "+e.getMessage()));'''
+          if old not in s:
+              raise SystemExit("ChatActivity message listener block did not match expected source")
+          chat.write_text(s.replace(old,new,1))
+
+          s = messages.read_text()
+          old = 'list.addView(Ui.body(this,"Unable to load chats: "+e.getMessage()));'
+          new = 'list.addView(Ui.body(this,"Unable to load chats ("+e.getCode()+"): "+e.getMessage()+"\\nFirebase project: "+com.google.firebase.FirebaseApp.getInstance().getOptions().getProjectId()));'
+          if old not in s:
+              raise SystemExit("MessagesActivity error text did not match expected source")
+          messages.write_text(s.replace(old,new,1))
+          print("V47: parent chat is initialized before messages listener; permission error includes code and Firebase project ID.")
+          PY
+          sed -i 's/VideoCallLive-V46-aligned.apk/VideoCallLive-V47-aligned.apk/g; s/VideoCallLive-V46.apk/VideoCallLive-V47.apk/g' .github/workflows/main.yml
+
       - name: Build release APK
         shell: bash
         run: |
@@ -142,8 +192,8 @@ jobs:
           set -euo pipefail
           mkdir -p signed
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V46-aligned.apk
-          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V46.apk             signed/VideoCallLive-V46-aligned.apk
+          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V47-aligned.apk
+          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V47.apk             signed/VideoCallLive-V46-aligned.apk
 
       - name: Verify signed APK
         shell: bash
@@ -155,7 +205,7 @@ jobs:
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V46-Home-Profile-Dedup
-          path: signed/VideoCallLive-V46.apk
+          name: VideoCallLive-V47-Chat-Permission-Fix
+          path: signed/VideoCallLive-V47.apk
           if-no-files-found: error
           retention-days: 30
