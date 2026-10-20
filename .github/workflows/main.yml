@@ -565,7 +565,7 @@ jobs:
           gpath.write_text(g.replace('versionCode 51','versionCode 52',1).replace('versionName "51.0-chat-list-call-read-fix"','versionName "52.0-startup-call-chat-quality-fix"',1))
           p=find("MainActivity.java"); s=p.read_text()
           old='''        Button retry = Ui.button(this, "Retry");
-        retry.setOnClickListener(v -> FirebaseHelper.restoreProfile(this));'''
+                  retry.setOnClickListener(v -> FirebaseHelper.restoreProfile(this));'''
           if old not in s: raise SystemExit("Retry UI block not found")
           s=s.replace(old,'''        ProgressBar progress = new ProgressBar(this);
                   progress.setIndeterminate(true);''',1)
