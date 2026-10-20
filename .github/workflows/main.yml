@@ -459,61 +459,61 @@ jobs:
           if start < 0 or end < 0:
               raise SystemExit("RealCallActivity offerFlow/answerFlow boundaries not found")
           new_method = ''' void offerFlow() {
-   String uid = FirebaseAuth.getInstance().getUid();
-   if (uid == null) { finish(); return; }
-   if (otherUid == null || otherUid.equals(uid)) {
-     Toast.makeText(this, "Invalid call recipient. Please choose another user.", Toast.LENGTH_LONG).show();
-     finish();
-     return;
-   }
-   if (callId == null) callId = db.collection("calls").document().getId();
-   final String cid = callId;
-   db.collection("users").document(uid).get().addOnCompleteListener(t -> {
-     Map<String,Object> m = new HashMap<>();
-     m.put("callerId", uid);
-     m.put("receiverId", otherUid);
-     m.put("participants", Arrays.asList(uid, otherUid));
-     m.put("status", "ringing");
-     m.put("createdAt", System.currentTimeMillis());
-     android.content.SharedPreferences pref = getSharedPreferences("vcl", 0);
-     String n = pref.getString("profile_name", "Caller");
-     String cc = pref.getString("profile_country", "");
-     String cp = null;
-     if (t.isSuccessful() && t.getResult() != null && t.getResult().exists()) {
-       DocumentSnapshot u = t.getResult();
-       String dn = u.getString("displayName");
-       if (dn != null && !dn.trim().isEmpty()) n = dn;
-       String fc = u.getString("country");
-       if (fc != null && !fc.trim().isEmpty()) cc = fc;
-       cp = u.getString("photoData");
-       if (cp == null || cp.isEmpty()) cp = u.getString("photoUrl");
-     }
-     m.put("callerName", n);
-     m.put("callerCountry", cc);
-     m.put("callerPhotoData", cp);
-     m.put("callerPhoto", cp);
-     db.collection("calls").document(cid).set(m)
-       .addOnSuccessListener(v -> {
-         if (closed) return;
-         listenAnswer();
-         rtc.offer(new WebRtcClient.SimpleSdp() {
-           public void onCreateSuccess(SessionDescription s) {
-             db.collection("calls").document(cid)
-               .update("offerType", "offer", "offerSdp", s.description)
-               .addOnSuccessListener(v2 -> listenIce("calleeCandidates"))
-               .addOnFailureListener(e -> runOnUiThread(() -> status.setText("Offer signaling failed (" + e.getMessage() + ")")));
+             String uid = FirebaseAuth.getInstance().getUid();
+             if (uid == null) { finish(); return; }
+             if (otherUid == null || otherUid.equals(uid)) {
+               Toast.makeText(this, "Invalid call recipient. Please choose another user.", Toast.LENGTH_LONG).show();
+               finish();
+               return;
+             }
+             if (callId == null) callId = db.collection("calls").document().getId();
+             final String cid = callId;
+             db.collection("users").document(uid).get().addOnCompleteListener(t -> {
+               Map<String,Object> m = new HashMap<>();
+               m.put("callerId", uid);
+               m.put("receiverId", otherUid);
+               m.put("participants", Arrays.asList(uid, otherUid));
+               m.put("status", "ringing");
+               m.put("createdAt", System.currentTimeMillis());
+               android.content.SharedPreferences pref = getSharedPreferences("vcl", 0);
+               String n = pref.getString("profile_name", "Caller");
+               String cc = pref.getString("profile_country", "");
+               String cp = null;
+               if (t.isSuccessful() && t.getResult() != null && t.getResult().exists()) {
+                 DocumentSnapshot u = t.getResult();
+                 String dn = u.getString("displayName");
+                 if (dn != null && !dn.trim().isEmpty()) n = dn;
+                 String fc = u.getString("country");
+                 if (fc != null && !fc.trim().isEmpty()) cc = fc;
+                 cp = u.getString("photoData");
+                 if (cp == null || cp.isEmpty()) cp = u.getString("photoUrl");
+               }
+               m.put("callerName", n);
+               m.put("callerCountry", cc);
+               m.put("callerPhotoData", cp);
+               m.put("callerPhoto", cp);
+               db.collection("calls").document(cid).set(m)
+                 .addOnSuccessListener(v -> {
+                   if (closed) return;
+                   listenAnswer();
+                   rtc.offer(new WebRtcClient.SimpleSdp() {
+                     public void onCreateSuccess(SessionDescription s) {
+                       db.collection("calls").document(cid)
+                         .update("offerType", "offer", "offerSdp", s.description)
+                         .addOnSuccessListener(v2 -> listenIce("calleeCandidates"))
+                         .addOnFailureListener(e -> runOnUiThread(() -> status.setText("Offer signaling failed (" + e.getMessage() + ")")));
+                     }
+                     public void onCreateFailure(String e) {
+                       runOnUiThread(() -> status.setText("Offer creation failed: " + e));
+                     }
+                   });
+                 })
+                 .addOnFailureListener(e -> runOnUiThread(() -> {
+                   Toast.makeText(this, "Call request failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                   finish();
+                 }));
+             });
            }
-           public void onCreateFailure(String e) {
-             runOnUiThread(() -> status.setText("Offer creation failed: " + e));
-           }
-         });
-       })
-       .addOnFailureListener(e -> runOnUiThread(() -> {
-         Toast.makeText(this, "Call request failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
-         finish();
-       }));
-   });
- }
 '''
           s = s[:start] + new_method + s[end:]
 
