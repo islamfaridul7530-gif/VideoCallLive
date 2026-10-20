@@ -9,6 +9,12 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    // The single owner-admin account may review creator applications, but
+    // only the review-status fields can be changed on another user's profile.
+    function isOwnerAdmin() {
+      return signedIn() && request.auth.uid == "cmnDofW7OcYP2FvTV2KA1uTARM22";
+    }
+
     function isChatParticipant(data) {
       return signedIn()
         && data.keys().hasAny(['participants'])
@@ -21,7 +27,11 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if signedIn();
       allow create: if isSelf(uid);
-      allow update: if isSelf(uid);
+      allow update: if isSelf(uid)
+                    || (isOwnerAdmin()
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['creatorApplicationStatus', 'creatorStatus',
+                                    'creatorApproved', 'creatorApplicationReviewedAt']));
       allow delete: if false;
     }
 
