@@ -39,7 +39,10 @@ service cloud.firestore {
     }
 
     match /chats/{chatId} {
-      allow get, list: if isChatParticipant(resource.data);
+      // Keep the list rule aligned with whereArrayContains("participants", uid).
+      // Existing legacy documents without a participants list are not readable.
+      allow get: if signedIn() && request.auth.uid in resource.data.participants;
+      allow list: if signedIn() && request.auth.uid in resource.data.participants;
       allow create: if isChatParticipant(request.resource.data)
                     && validChatId(chatId, request.resource.data);
       allow update: if isChatParticipant(request.resource.data)
@@ -60,22 +63,36 @@ service cloud.firestore {
     }
 
     // Call records are accessible only to listed participants.
+    function isCallParticipant(data) {
+      return signedIn()
+        && (data.callerId == request.auth.uid
+            || data.receiverId == request.auth.uid);
+    }
+
     match /calls/{callId} {
-      allow read: if isChatParticipant(resource.data);
-      allow create: if isChatParticipant(request.resource.data);
-      allow update: if isChatParticipant(resource.data)
-                    && isChatParticipant(request.resource.data);
+      // Call lists query callerId/receiverId, so authorize against those same fields.
+      allow get, list: if isCallParticipant(resource.data);
+      allow create: if signedIn()
+                    && request.resource.data.callerId == request.auth.uid
+                    && request.resource.data.receiverId is string
+                    && request.resource.data.receiverId != request.auth.uid
+                    && request.resource.data.participants is list
+                    && request.resource.data.participants.size() == 2
+                    && request.resource.data.callerId in request.resource.data.participants
+                    && request.resource.data.receiverId in request.resource.data.participants;
+      allow update: if isCallParticipant(resource.data)
+                    && request.resource.data.callerId == resource.data.callerId
+                    && request.resource.data.receiverId == resource.data.receiverId
+                    && request.resource.data.participants == resource.data.participants;
       allow delete: if false;
 
-      // ICE candidates are stored in child collections, so the parent call rule
-      // does not cover them. Read is limited to call participants; each side
-      // may only publish candidates for its own side of the negotiation.
+      // ICE candidate access is restricted to the two call participants.
       match /callerCandidates/{candidateId} {
         function parentCall() {
           return get(/databases/$(database)/documents/calls/$(callId)).data;
         }
-        allow read: if isChatParticipant(parentCall());
-        allow create: if isChatParticipant(parentCall())
+        allow read: if isCallParticipant(parentCall());
+        allow create: if isCallParticipant(parentCall())
                       && parentCall().callerId == request.auth.uid;
         allow update, delete: if false;
       }
@@ -84,8 +101,8 @@ service cloud.firestore {
         function parentCall() {
           return get(/databases/$(database)/documents/calls/$(callId)).data;
         }
-        allow read: if isChatParticipant(parentCall());
-        allow create: if isChatParticipant(parentCall())
+        allow read: if isCallParticipant(parentCall());
+        allow create: if isCallParticipant(parentCall())
                       && parentCall().receiverId == request.auth.uid;
         allow update, delete: if false;
       }
