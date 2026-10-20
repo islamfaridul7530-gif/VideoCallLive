@@ -318,6 +318,69 @@ jobs:
               raise SystemExit("ProfilePhotoSync shared photo key did not match")
           p.write_text(s.replace(old, new, 1))
 
+          # Fix outgoing call records to satisfy Firestore participant-based access rules.
+          p = find("RealCallActivity.java")
+          s = p.read_text()
+          old = 'm.put("callerId",uid);m.put("receiverId",otherUid);m.put("status","ringing");'
+          new = 'm.put("callerId",uid);m.put("receiverId",otherUid);m.put("participants",Arrays.asList(uid,otherUid));m.put("status","ringing");'
+          if old not in s:
+              raise SystemExit("RealCallActivity outgoing call payload did not match")
+          s = s.replace(old, new, 1)
+
+          # Start call chat only after a participant document has been initialized.
+          old = 'root.setOnClickListener(v->showControls());remote.setOnClickListener(v->showControls());local.setOnClickListener(v->showControls());showControls();listenChat();'
+          new = 'root.setOnClickListener(v->showControls());remote.setOnClickListener(v->showControls());local.setOnClickListener(v->showControls());showControls();'
+          if old not in s:
+              raise SystemExit("RealCallActivity early in-call chat listener block did not match")
+          s = s.replace(old, new, 1)
+          old = 'if(incoming)answerFlow();else offerFlow();}'
+          new = 'if(incoming){answerFlow();ensureChatThenListen();}else{offerFlow();ensureChatThenListen();}}'
+          if old not in s:
+              raise SystemExit("RealCallActivity call startup block did not match")
+          s = s.replace(old, new, 1)
+          marker = ' void listenChat(){'
+          methods = ''' void ensureChatThenListen(){
+   if(room==null||me==null||otherUid==null||me.equals(otherUid))return;
+   Map<String,Object> chat=new HashMap<>();
+   chat.put("participants",Arrays.asList(me,otherUid));
+   chat.put("updatedAt",System.currentTimeMillis());
+   db.collection("chats").document(room).set(chat,SetOptions.merge())
+    .addOnSuccessListener(v->{if(!closed)listenChat();})
+    .addOnFailureListener(e->runOnUiThread(()->status.setText("Chat setup failed: "+e.getMessage())));
+ }
+'''
+          if marker not in s:
+              raise SystemExit("RealCallActivity listenChat insertion point missing")
+          s = s.replace(marker, methods + marker, 1)
+
+          # Report Firestore listener failures instead of silently showing empty in-call chat.
+          old = 'addSnapshotListener((q,e)->{if(closed||q==null)return;chatLines.removeAllViews();'
+          new = 'addSnapshotListener((q,e)->{if(closed)return;if(e!=null){runOnUiThread(()->status.setText("Call chat unavailable: "+e.getMessage()));return;}if(q==null)return;chatLines.removeAllViews();'
+          if old not in s:
+              raise SystemExit("RealCallActivity chat listener block did not match")
+          s = s.replace(old, new, 1)
+
+          # Surface ICE writes failing, which can leave calls stuck at Connecting.
+          old = 'db.collection("calls").document(callId).collection(col).add(m);'
+          new = 'db.collection("calls").document(callId).collection(col).add(m).addOnFailureListener(e->runOnUiThread(()->status.setText("ICE signaling failed: "+e.getMessage())));'
+          if old not in s:
+              raise SystemExit("RealCallActivity ICE write block did not match")
+          s = s.replace(old, new, 1)
+
+          # Report offer publishing failures instead of ignoring the Firestore update result.
+          old = 'public void onCreateSuccess(SessionDescription s){db.collection("calls").document(callId).update("offerType","offer","offerSdp",s.description);listenIce("calleeCandidates");}'
+          new = 'public void onCreateSuccess(SessionDescription s){db.collection("calls").document(callId).update("offerType","offer","offerSdp",s.description).addOnSuccessListener(v->listenIce("calleeCandidates")).addOnFailureListener(e->runOnUiThread(()->status.setText("Offer signaling failed: "+e.getMessage())));}public void onCreateFailure(String e){runOnUiThread(()->status.setText("Offer creation failed: "+e));}'
+          if old not in s:
+              raise SystemExit("RealCallActivity offer signaling block did not match")
+          s = s.replace(old, new, 1)
+
+          old = 'ref.update("answerType","answer","answerSdp",a.description,"status","accepted");runOnUiThread(()->status.setText(otherName+" • Connecting…"));listenIce("callerCandidates");'
+          new = 'ref.update("answerType","answer","answerSdp",a.description,"status","accepted").addOnFailureListener(e->runOnUiThread(()->status.setText("Answer signaling failed: "+e.getMessage())));runOnUiThread(()->status.setText(otherName+" • Connecting…"));listenIce("callerCandidates");'
+          if old not in s:
+              raise SystemExit("RealCallActivity answer signaling block did not match")
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+
           # Include the authenticated UID in the permission error so the deployed rule mismatch can be diagnosed.
           p = find("MessagesActivity.java")
           s = p.read_text()
