@@ -1,4 +1,4 @@
-name: Build V50 Call Chat Signaling Fix and Account Isolation
+name: Build V52 Startup, Call Chat, and Quality Fix
 
 on:
   push:
@@ -655,20 +655,20 @@ jobs:
           set -euo pipefail
           mkdir -p signed
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V51-aligned.apk
-          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V51.apk             signed/VideoCallLive-V51-aligned.apk
+          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V52-aligned.apk
+          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V52.apk             signed/VideoCallLive-V52-aligned.apk
 
       - name: Verify signed APK
         shell: bash
         run: |
           set -euo pipefail
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V51.apk
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V52.apk
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
           name: VideoCallLive-V52-Startup-Call-Chat-Quality-Fix
-          path: signed/VideoCallLive-V51.apk
+          path: signed/VideoCallLive-V52.apk
           if-no-files-found: error
           retention-days: 30
