@@ -514,7 +514,7 @@ jobs:
                  }));
              });
            }
-'''
+          '''
           s = s[:start] + new_method + s[end:]
 
           # Surface the real Firestore error rather than only showing "Call error".
