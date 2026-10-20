@@ -1,4 +1,4 @@
-name: Build V49 Account Isolation Chat Fix and ARM Size Optimization
+name: Build V50 Call Chat Signaling Fix and Account Isolation
 
 on:
   push:
@@ -213,8 +213,8 @@ jobs:
           g = gradle.read_text()
           if 'versionCode 48' not in g or 'versionName "48.0-arm-apk-size-optimization"' not in g:
               raise SystemExit("Expected V48 version markers not found")
-          g = g.replace('versionCode 48', 'versionCode 49', 1)
-          g = g.replace('versionName "48.0-arm-apk-size-optimization"', 'versionName "49.0-account-isolation-chat-fix"', 1)
+          g = g.replace('versionCode 48', 'versionCode 50', 1)
+          g = g.replace('versionName "48.0-arm-apk-size-optimization"', 'versionName "50.0-call-chat-signaling-fix"', 1)
           gradle.write_text(g)
 
           # Do not briefly show the login options while a saved Firebase account is being restored.
