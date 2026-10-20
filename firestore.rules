@@ -87,6 +87,17 @@ service cloud.firestore {
       allow delete: if false;
 
       // ICE candidate access is restricted to the two call participants.
+      // Call-only chat is scoped to this call and must never create a normal chats-list entry.
+      match /chatMessages/{messageId} {
+        function parentCall() {
+          return get(/databases/$(database)/documents/calls/$(callId)).data;
+        }
+        allow read: if isCallParticipant(parentCall());
+        allow create: if isCallParticipant(parentCall())
+                      && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+
       match /callerCandidates/{candidateId} {
         function parentCall() {
           return get(/databases/$(database)/documents/calls/$(callId)).data;
