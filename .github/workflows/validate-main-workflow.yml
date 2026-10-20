@@ -1,0 +1,17 @@
+name: Validate main workflow YAML
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Parse main workflow YAML
+        shell: bash
+        run: |
+          ruby -e 'require "yaml"; YAML.parse_file(".github/workflows/main.yml"); puts "main.yml YAML syntax OK"'
