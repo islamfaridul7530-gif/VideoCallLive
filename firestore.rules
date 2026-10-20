@@ -66,6 +66,29 @@ service cloud.firestore {
       allow update: if isChatParticipant(resource.data)
                     && isChatParticipant(request.resource.data);
       allow delete: if false;
+
+      // ICE candidates are stored in child collections, so the parent call rule
+      // does not cover them. Read is limited to call participants; each side
+      // may only publish candidates for its own side of the negotiation.
+      match /callerCandidates/{candidateId} {
+        function parentCall() {
+          return get(/databases/$(database)/documents/calls/$(callId)).data;
+        }
+        allow read: if isChatParticipant(parentCall());
+        allow create: if isChatParticipant(parentCall())
+                      && parentCall().callerId == request.auth.uid;
+        allow update, delete: if false;
+      }
+
+      match /calleeCandidates/{candidateId} {
+        function parentCall() {
+          return get(/databases/$(database)/documents/calls/$(callId)).data;
+        }
+        allow read: if isChatParticipant(parentCall());
+        allow create: if isChatParticipant(parentCall())
+                      && parentCall().receiverId == request.auth.uid;
+        allow update, delete: if false;
+      }
     }
 
     // Payment orders are created/updated by trusted Cloud Functions only.

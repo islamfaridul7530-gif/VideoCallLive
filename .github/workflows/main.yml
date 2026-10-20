@@ -351,15 +351,15 @@ jobs:
           s = s.replace(old, new, 1)
           marker = ' void listenChat(){'
           methods = ''' void ensureChatThenListen(){
-   if(room==null||me==null||otherUid==null||me.equals(otherUid))return;
-   Map<String,Object> chat=new HashMap<>();
-   chat.put("participants",Arrays.asList(me,otherUid));
-   chat.put("updatedAt",System.currentTimeMillis());
-   db.collection("chats").document(room).set(chat,SetOptions.merge())
-    .addOnSuccessListener(v->{if(!closed)listenChat();})
-    .addOnFailureListener(e->runOnUiThread(()->status.setText("Chat setup failed: "+e.getMessage())));
- }
-'''
+             if(room==null||me==null||otherUid==null||me.equals(otherUid))return;
+             Map<String,Object> chat=new HashMap<>();
+             chat.put("participants",Arrays.asList(me,otherUid));
+             chat.put("updatedAt",System.currentTimeMillis());
+             db.collection("chats").document(room).set(chat,SetOptions.merge())
+              .addOnSuccessListener(v->{if(!closed)listenChat();})
+              .addOnFailureListener(e->runOnUiThread(()->status.setText("Chat setup failed: "+e.getMessage())));
+           }
+          '''
           if marker not in s:
               raise SystemExit("RealCallActivity listenChat insertion point missing")
           s = s.replace(marker, methods + marker, 1)
