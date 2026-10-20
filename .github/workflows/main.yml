@@ -546,11 +546,69 @@ jobs:
           print(f"Created V51 source archive: {out}")
           PY
 
+      - name: Apply V52 startup and call-chat fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path("extracted")
+          def find(n):
+              p=next(root.rglob(n),None)
+              if p is None: raise SystemExit(n+" not found")
+              return p
+          gpath=next(root.rglob("app/build.gradle"),None)
+          if gpath is None: raise SystemExit("build.gradle not found")
+          g=gpath.read_text()
+          if 'versionCode 51' not in g or 'versionName "51.0-chat-list-call-read-fix"' not in g:
+              raise SystemExit("V51 version marker missing")
+          gpath.write_text(g.replace('versionCode 51','versionCode 52',1).replace('versionName "51.0-chat-list-call-read-fix"','versionName "52.0-startup-call-chat-quality-fix"',1))
+          p=find("MainActivity.java"); s=p.read_text()
+          old='''        Button retry = Ui.button(this, "Retry");
+                  retry.setOnClickListener(v -> FirebaseHelper.restoreProfile(this));'''
+          if old not in s: raise SystemExit("Retry UI block not found")
+          s=s.replace(old,'''        ProgressBar progress = new ProgressBar(this);
+                  progress.setIndeterminate(true);''',1)
+          if '        r.addView(retry);' not in s: raise SystemExit("Retry view not found")
+          s=s.replace('        r.addView(retry);','        r.addView(progress);',1); p.write_text(s)
+          p=find("ChatActivity.java"); s=p.read_text()
+          old='root.setPadding(Ui.dp(this,10),Ui.dp(this,8),Ui.dp(this,10),Ui.dp(this,6));'
+          if old not in s: raise SystemExit("Chat header padding not found")
+          p.write_text(s.replace(old,'root.setPadding(Ui.dp(this,10),Ui.dp(this,34),Ui.dp(this,10),Ui.dp(this,6));',1))
+          p=find("RealCallActivity.java"); s=p.read_text()
+          s=s.replace('ListenerRegistration callReg,iceReg,chatReg;','ListenerRegistration callReg,iceReg,chatReg,callChatParentReg; boolean callChatListening=false;',1)
+          a=s.find(' void ensureChatThenListen(){'); b=s.find(' void action(String a){',a)
+          if a<0 or b<0: raise SystemExit("Call chat methods not found")
+          methods=''' void ensureChatThenListen(){
+            if(callId==null||me==null||otherUid==null||me.equals(otherUid))return;
+            callChatParentReg=db.collection("calls").document(callId).addSnapshotListener((d,e)->{
+              if(closed||callChatListening)return;
+              if(e!=null){runOnUiThread(()->status.setText("Call chat setup failed: "+e.getMessage()));return;}
+              if(d==null||!d.exists())return;
+              List<String> ps=(List<String>)d.get("participants");
+              if(ps==null||!ps.contains(me)||!ps.contains(otherUid))return;
+              callChatListening=true; listenChat();
+            });
+          }
+          void listenChat(){if(callId==null)return;chatReg=db.collection("calls").document(callId).collection("chatMessages").orderBy("createdAt",Query.Direction.ASCENDING).limitToLast(30).addSnapshotListener((q,e)->{if(closed)return;if(e!=null){runOnUiThread(()->status.setText("Call chat unavailable: "+e.getMessage()));return;}if(q==null)return;chatLines.removeAllViews();for(DocumentSnapshot d:q.getDocuments()){String msg=d.getString("text");if(msg==null)continue;boolean own=me.equals(d.getString("senderId"));Long ts=d.getLong("createdAt");TextView line=new TextView(this);line.setText((own?"You":otherName)+"   "+new java.text.SimpleDateFormat("h:mm a",java.util.Locale.getDefault()).format(new java.util.Date(ts==null?System.currentTimeMillis():ts))+"\\n"+msg);line.setTextSize(15);line.setLineSpacing(dp(2),1f);line.setTextColor(Color.WHITE);line.setShadowLayer(3,1,1,Color.BLACK);line.setPadding(dp(4),dp(3),dp(4),dp(3));LinearLayout message=new LinearLayout(this);message.setGravity(Gravity.TOP);ImageView avatar=ProfileImages.circleAvatar(this,own?myPhotoUrl:otherPhotoUrl,own?"You":otherName,32);message.addView(avatar,new LinearLayout.LayoutParams(dp(32),dp(32)));message.addView(line,new LinearLayout.LayoutParams(0,-2,1));chatLines.addView(message);}chatScroll.post(()->chatScroll.fullScroll(View.FOCUS_DOWN));});}
+          void sendChat(){if(callId==null||me==null||otherUid==null)return;String msg=chatInput.getText().toString().trim();if(msg.isEmpty())return;Map<String,Object> m=new HashMap<>();m.put("senderId",me);m.put("receiverId",otherUid);m.put("text",msg);m.put("createdAt",System.currentTimeMillis());db.collection("calls").document(callId).collection("chatMessages").add(m).addOnSuccessListener(y->chatInput.setText("")).addOnFailureListener(e->Toast.makeText(this,e.getMessage(),Toast.LENGTH_SHORT).show());}
+          '''
+          s=s[:a]+methods+s[b:]
+          s=s.replace('if(chatReg!=null)chatReg.remove();','if(chatReg!=null)chatReg.remove();if(callChatParentReg!=null)callChatParentReg.remove();',1)
+          p.write_text(s)
+          p=find("WebRtcClient.java"); s=p.read_text()
+          old='encoding.maxBitrateBps=3000000;encoding.minBitrateBps=500000;encoding.maxFramerate=30;'
+          if old not in s: raise SystemExit("Video bitrate settings not found")
+          p.write_text(s.replace(old,'encoding.maxBitrateBps=4500000;encoding.minBitrateBps=600000;encoding.maxFramerate=30;',1))
+          print("V52 source changes applied")
+          PY
+          sed -i 's/VideoCallLive-V51-aligned.apk/VideoCallLive-V52-aligned.apk/g; s/VideoCallLive-V51.apk/VideoCallLive-V52.apk/g' .github/workflows/main.yml
+
       - name: Upload source diagnostics for code review
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V51-Source-Diagnostics
-          path: /tmp/VideoCallLive-V51-Source-Diagnostics.zip
+          name: VideoCallLive-V52-Source-Diagnostics
+          path: /tmp/VideoCallLive-V52-Source-Diagnostics.zip
           if-no-files-found: error
           retention-days: 7
 
@@ -604,7 +662,7 @@ jobs:
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V51-Chat-Call-Permissions-Fix
+          name: VideoCallLive-V52-Startup-Call-Chat-Quality-Fix
           path: signed/VideoCallLive-V51.apk
           if-no-files-found: error
           retention-days: 30
