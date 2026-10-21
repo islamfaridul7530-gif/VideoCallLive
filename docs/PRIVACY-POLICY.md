@@ -1,6 +1,6 @@
 # Privacy Policy — VideoCallLive
 
-**Draft updated: 21 October 2026.** This draft must not be used for Google Play submission until the support email below is replaced with an active address and the app changes described here have been deployed and tested.
+**Draft updated: 21 October 2026.** This policy is prepared for review. Do not submit it to Google Play until the app changes described here have been deployed and tested and the external account-deletion page is publicly accessible.
 
 VideoCallLive is an adults-only social communication app for profiles, messaging and live audio/video calls. This policy describes information handled by the current app source and its Firebase/Cashfree backend.
 
@@ -46,9 +46,9 @@ VideoCallLive is intended for adults aged 18 and over. Do not use the app if you
 
 ## Your choices
 
-You may edit profile information in the app, stop granting camera/microphone access in Android settings, and request account deletion using **Profile → Delete Account** after the deletion update is installed. For a question about this policy or a deletion request when you cannot access the app, contact:
+You may edit profile information in the app, stop granting camera/microphone access in Android settings, and request account deletion using **Profile → Delete Account** after the deletion update is installed. For a question about this policy or a deletion request when you cannot access the app, email the address below. This mailbox should be monitored regularly:
 
-**Privacy/support email: [REPLACE WITH YOUR ACTIVE SUPPORT EMAIL BEFORE PUBLICATION]**
+**Privacy/support email: videocalllive7530support@gmail.com**
 
 Do not send passwords, OTPs or payment credentials in a support request.
 
