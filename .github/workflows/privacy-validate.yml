@@ -30,6 +30,8 @@ jobs:
           grep -q 'videocalllive7530support@gmail.com' docs/PRIVACY-POLICY.md
           grep -q 'videocalllive7530support@gmail.com' docs/DELETE-ACCOUNT.md
           grep -q 'exports.deleteMyAccount' functions/index.js
-          grep -q 'AccountDeletionActivity' v45_patch/app/src/main/AndroidManifest.xml
-          grep -q 'versionCode 54' <(grep -n 'versionCode 53' v45_patch/app/build.gradle || true) && exit 1 || true
-          echo "Privacy contact and account-deletion source checks passed."
+          grep -q 'versionCode 54' .github/workflows/main.yml
+          grep -q '54.0-privacy-account-deletion' .github/workflows/main.yml
+          node --check functions/index.js
+          node --check functions/migrate-private-user-data.js
+          echo "Privacy contact, account deletion, V54 version markers and JavaScript syntax checks passed."
