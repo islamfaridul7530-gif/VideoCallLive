@@ -756,7 +756,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          jarsigner -verify -strict -verbose signed/VideoCallLive-V53.aab >/dev/null
+          jarsigner -verify -verbose signed/VideoCallLive-V53.aab > /tmp/aab-verify.txt 2>&1
+          cat /tmp/aab-verify.txt | tail -30
+          if ! grep -qi "jar verified" /tmp/aab-verify.txt; then
+            echo "ERROR: jarsigner did not confirm the AAB signature"
+            exit 1
+          fi
           echo "AAB signature verified"
 
       - name: Verify signed APK
