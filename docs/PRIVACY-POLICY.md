@@ -50,7 +50,7 @@ You may edit profile information in the app, stop granting camera/microphone acc
 
 **Privacy/support email: [videocalllive7530support@gmail.com](mailto:videocalllive7530support@gmail.com)**
 
-Do not send passwords, OTPs or payment credentials in a support request.
+For privacy-related enquiries, use the subject “VideoCallLive Privacy Request”. Do not send passwords, OTPs or payment credentials in a support request.
 
 ## Changes to this policy
 
