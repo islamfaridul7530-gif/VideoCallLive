@@ -709,6 +709,16 @@ jobs:
               raise SystemExit("Creator application write block did not match")
           p.write_text(s.replace(old, new, 1))
 
+          # Restore the private creator-application status into local UI state after login.
+          # The status is no longer stored on the broadly readable public profile document.
+          p = find("FirebaseHelper.java")
+          s = p.read_text()
+          old = 'e.apply();a.startActivity(new android.content.Intent(a,HomeActivity.class));'
+          new = 'e.apply();FirebaseFirestore.getInstance().collection("creatorApplications").document(uid).get().addOnSuccessListener(app->{String st=app.getString("creatorApplicationStatus");if(st==null||st.trim().isEmpty())st=app.getString("creatorStatus");android.content.SharedPreferences.Editor ce=a.getSharedPreferences("vcl",0).edit();if(st==null||st.trim().isEmpty())ce.remove("creator_status");else ce.putString("creator_status",st);ce.apply();});a.startActivity(new android.content.Intent(a,HomeActivity.class));'
+          if old not in s:
+              raise SystemExit("FirebaseHelper HomeActivity restore point did not match")
+          p.write_text(s.replace(old, new, 1))
+
           # Keep submitted selfie and application details visible only to the applicant/admin.
           p = find("AdminReviewActivity.java")
           s = p.read_text()
