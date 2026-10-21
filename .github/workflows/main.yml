@@ -646,7 +646,7 @@ jobs:
       - name: Install Android SDK API 36
         shell: bash
         run: |
-          set -euo pipefail
+          set -eu
           echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
           SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
