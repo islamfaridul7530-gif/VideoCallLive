@@ -730,11 +730,19 @@ exports.deleteMyAccount = onCall(
     await deleteStoragePrefix("profilePhotos/" + uid + "/");
     await deleteStoragePrefix("creatorApplications/" + uid + "/");
 
-    // Shared conversations are removed from the service so the deleted account's
-    // message content and identifiers are not retained in the app database.
-    await deleteDocumentsForQuery(
-      db.collection("chats").where("participants", "array-contains", uid)
-    );
+    // Delete both current participant-indexed chats and legacy deterministic room
+    // IDs from before the participants field was added. Account deletion is rare;
+    // this bounded-purpose scan avoids leaving old messages under an orphaned room.
+    const allChats = await db.collection("chats").get();
+    const chatRefs = new Map();
+    for (const chat of allChats.docs) {
+      const participants = chat.get("participants");
+      const idMatches = chat.id.startsWith(uid + "_") || chat.id.endsWith("_" + uid);
+      if ((Array.isArray(participants) && participants.includes(uid)) || idMatches) {
+        chatRefs.set(chat.ref.path, chat.ref);
+      }
+    }
+    for (const ref of chatRefs.values()) await db.recursiveDelete(ref);
 
     const callQueries = await Promise.all([
       db.collection("calls").where("callerId", "==", uid).get(),

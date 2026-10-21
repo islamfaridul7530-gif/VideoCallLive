@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -835,6 +838,7 @@ jobs:
           echo "AAB found: $AAB"
 
       - name: Restore signing keystore
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -847,6 +851,7 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
 
       - name: Sign APK
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -860,6 +865,7 @@ jobs:
           "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V53.apk             signed/VideoCallLive-V53-aligned.apk
 
       - name: Sign Android App Bundle
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -871,6 +877,7 @@ jobs:
           jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V53.aab "$KEY_ALIAS"
 
       - name: Verify signed Android App Bundle
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -883,6 +890,7 @@ jobs:
           echo "AAB signature verified"
 
       - name: Verify signed APK
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -890,6 +898,7 @@ jobs:
           "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V53.apk
 
       - name: Upload signed APK
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: VideoCallLive-V53-Play-Store-API36-AAB
@@ -898,6 +907,7 @@ jobs:
           retention-days: 30
 
       - name: Upload signed AAB for Google Play Console
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: VideoCallLive-V53-Play-Store-AAB
