@@ -9,17 +9,36 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    // The single owner-admin account may review creator applications, but
-    // only the review-status fields can be changed on another user's profile.
     function isOwnerAdmin() {
       return signedIn() && request.auth.uid == "cmnDofW7OcYP2FvTV2KA1uTARM22";
     }
 
+    function isBlockedPair(uid1, uid2) {
+      return exists(/databases/$(database)/documents/users/$(uid1)/blocked/$(uid2))
+          || exists(/databases/$(database)/documents/users/$(uid2)/blocked/$(uid1));
+    }
+
+    function canInteract(uid1, uid2) {
+      return signedIn()
+          && uid1 is string
+          && uid2 is string
+          && uid1 != uid2
+          && !isBlockedPair(uid1, uid2);
+    }
+
+    // The single owner-admin account may review creator applications, but
+    // only the review-status fields can be changed on another user's profile.
+    function hasTwoParticipants(data) {
+      return data.keys().hasAny(['participants'])
+          && data.participants is list
+          && data.participants.size() == 2;
+    }
+
     function isChatParticipant(data) {
       return signedIn()
-        && data.keys().hasAny(['participants'])
-        && data.participants is list
-        && request.auth.uid in data.participants;
+        && hasTwoParticipants(data)
+        && request.auth.uid in data.participants
+        && canInteract(data.participants[0], data.participants[1]);
     }
 
     // Public profile discovery is restricted to authenticated app users.
@@ -44,6 +63,45 @@ service cloud.firestore {
                         && request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['creatorStatus']));
       allow delete: if false;
+
+      match /blocked/{targetUid} {
+        allow get, list: if isSelf(uid);
+        allow create: if isSelf(uid)
+                      && targetUid != uid
+                      && request.resource.data.keys().hasOnly(['createdAt'])
+                      && request.resource.data.createdAt is number;
+        allow update: if false;
+        allow delete: if isSelf(uid);
+      }
+
+      match /following/{targetUid} {
+        allow get, list: if isSelf(uid);
+        allow create: if isSelf(uid)
+                      && targetUid != uid
+                      && request.resource.data.keys().hasOnly(['followedAt'])
+                      && request.resource.data.followedAt is number;
+        allow update: if false;
+        allow delete: if isSelf(uid);
+      }
+
+      match /reportedUsers/{targetUid} {
+        allow get, list: if isSelf(uid);
+        allow create: if isSelf(uid)
+                      && targetUid != uid
+                      && request.resource.data.keys().hasOnly(['createdAt'])
+                      && request.resource.data.createdAt is number;
+        allow update, delete: if false;
+      }
+
+      match /profileTags/{taggerUid} {
+        allow read: if signedIn();
+        allow create, update: if signedIn()
+                              && request.auth.uid == taggerUid
+                              && request.resource.data.keys().hasOnly(['tag'])
+                              && request.resource.data.tag is string
+                              && request.resource.data.tag.size() <= 64;
+        allow delete: if isSelf(taggerUid) || isOwnerAdmin();
+      }
     }
 
     match /privateUsers/{uid} {
@@ -102,8 +160,13 @@ service cloud.firestore {
     match /chats/{chatId} {
       // Keep the list rule aligned with whereArrayContains("participants", uid).
       // Existing legacy documents without a participants list are not readable.
-      allow get: if signedIn() && request.auth.uid in resource.data.participants;
-      allow list: if signedIn() && request.auth.uid in resource.data.participants;
+      allow get: if signedIn()
+                     && hasTwoParticipants(resource.data)
+                     && request.auth.uid in resource.data.participants
+                     && canInteract(resource.data.participants[0], resource.data.participants[1]);
+      allow list: if signedIn()
+                     && hasTwoParticipants(resource.data)
+                     && request.auth.uid in resource.data.participants;
       allow create: if isChatParticipant(request.resource.data)
                     && validChatId(chatId, request.resource.data);
       allow update: if isChatParticipant(request.resource.data)
@@ -124,15 +187,20 @@ service cloud.firestore {
     }
 
     // Call records are accessible only to listed participants.
-    function isCallParticipant(data) {
+    function isCallMember(data) {
       return signedIn()
         && (data.callerId == request.auth.uid
             || data.receiverId == request.auth.uid);
     }
 
+    function isCallParticipant(data) {
+      return isCallMember(data) && canInteract(data.callerId, data.receiverId);
+    }
+
     match /calls/{callId} {
       // Call lists query callerId/receiverId, so authorize against those same fields.
-      allow get, list: if isCallParticipant(resource.data);
+      allow get: if isCallParticipant(resource.data);
+      allow list: if isCallMember(resource.data);
       allow create: if signedIn()
                     && request.resource.data.callerId == request.auth.uid
                     && request.resource.data.receiverId is string
@@ -140,11 +208,17 @@ service cloud.firestore {
                     && request.resource.data.participants is list
                     && request.resource.data.participants.size() == 2
                     && request.resource.data.callerId in request.resource.data.participants
-                    && request.resource.data.receiverId in request.resource.data.participants;
-      allow update: if isCallParticipant(resource.data)
+                    && request.resource.data.receiverId in request.resource.data.participants
+                    && canInteract(request.resource.data.callerId, request.resource.data.receiverId);
+      allow update: if isCallMember(resource.data)
                     && request.resource.data.callerId == resource.data.callerId
                     && request.resource.data.receiverId == resource.data.receiverId
-                    && request.resource.data.participants == resource.data.participants;
+                    && request.resource.data.participants == resource.data.participants
+                    && (
+                      canInteract(resource.data.callerId, resource.data.receiverId)
+                      || (request.resource.data.status == 'ended'
+                          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
+                    );
       allow delete: if false;
 
       // ICE candidate access is restricted to the two call participants.
@@ -178,6 +252,34 @@ service cloud.firestore {
                       && parentCall().receiverId == request.auth.uid;
         allow update, delete: if false;
       }
+    }
+
+    match /userReports/{reportId} {
+      allow create: if signedIn()
+                    && request.resource.data.keys().hasOnly([
+                      'reporterUid', 'reportedUid', 'reportedName',
+                      'reason', 'createdAt', 'status'
+                    ])
+                    && request.resource.data.reporterUid == request.auth.uid
+                    && request.resource.data.reportedUid is string
+                    && request.resource.data.reportedUid != request.auth.uid
+                    && request.resource.data.reportedName is string
+                    && request.resource.data.reason in [
+                      'Harassment or bullying',
+                      'Fake profile / impersonation',
+                      'Sexual or inappropriate content',
+                      'Underage user',
+                      'Scam or payment abuse',
+                      'Other'
+                    ]
+                    && request.resource.data.createdAt is number
+                    && request.resource.data.status == 'open';
+      allow get, list: if isOwnerAdmin();
+      allow update: if isOwnerAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                      .hasOnly(['status', 'reviewedAt'])
+                    && request.resource.data.status in ['open', 'reviewed', 'dismissed'];
+      allow delete: if false;
     }
 
     // Payment orders are created/updated by trusted Cloud Functions only.
