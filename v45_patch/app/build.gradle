@@ -1,11 +1,11 @@
 plugins { id 'com.android.application' }
 android {
  namespace 'com.videocalllive.app'
- compileSdk 35
+ compileSdk 36
  defaultConfig {
   applicationId "com.videocalllive.app"
   minSdk 23
-  targetSdk 35
+  targetSdk 36
   versionCode 45
   versionName "45.0-creator-verification"
  }

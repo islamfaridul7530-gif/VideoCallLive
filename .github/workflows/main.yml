@@ -610,11 +610,51 @@ jobs:
           PY
           sed -i 's/VideoCallLive-V51-aligned.apk/VideoCallLive-V52-aligned.apk/g; s/VideoCallLive-V51.apk/VideoCallLive-V52.apk/g' .github/workflows/main.yml
 
+      - name: Apply V53 Play Store API 36 and AAB preparation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          root = Path("extracted")
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if gradle is None:
+              raise SystemExit("app/build.gradle not found")
+          s = gradle.read_text()
+          if 'versionCode 52' not in s or 'versionName "52.0-startup-call-chat-quality-fix"' not in s:
+              raise SystemExit("Expected V52 version markers not found")
+          if 'compileSdk 36' not in s or 'targetSdk 36' not in s:
+              raise SystemExit("Play Store build must use compileSdk 36 and targetSdk 36")
+          s = s.replace('versionCode 52', 'versionCode 53', 1)
+          s = s.replace('versionName "52.0-startup-call-chat-quality-fix"', 'versionName "53.0-play-store-api36-aab"', 1)
+          gradle.write_text(s)
+
+          src = next(root.rglob("app/src/main/java"), None)
+          if src is None:
+              raise SystemExit("Java source tree not found")
+          out = Path("/tmp/VideoCallLive-V53-Source-Diagnostics.zip")
+          with ZipFile(out, "w", ZIP_DEFLATED) as z:
+              for p in src.rglob("*.java"):
+                  z.write(p, p.relative_to(src.parent.parent.parent))
+              z.write(gradle, "app/build.gradle")
+          print("V53 version 53, compileSdk 36, targetSdk 36 confirmed.")
+          print(f"Created source archive: {out}")
+          PY
+          sed -i 's/VideoCallLive-V53-aligned.apk/VideoCallLive-V53-aligned.apk/g; s/VideoCallLive-V53.apk/VideoCallLive-V53.apk/g' .github/workflows/main.yml
+
+      - name: Install Android SDK API 36
+        shell: bash
+        run: |
+          set -e
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --sdk_root="$ANDROID_HOME" "platforms;android-36" "build-tools;36.0.0"
+
       - name: Upload source diagnostics for code review
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V52-Source-Diagnostics
-          path: /tmp/VideoCallLive-V52-Source-Diagnostics.zip
+          name: VideoCallLive-V53-Source-Diagnostics
+          path: /tmp/VideoCallLive-V53-Source-Diagnostics.zip
           if-no-files-found: error
           retention-days: 7
 
@@ -623,15 +663,23 @@ jobs:
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
-          gradle clean assembleRelease
+          gradle clean assembleRelease bundleRelease
           APK="$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n 1)"
+          AAB="$(find app/build/outputs/bundle/release -type f -name '*.aab' | head -n 1)"
           if [ -z "$APK" ]; then
             echo "ERROR: Release APK not found"
             find app/build/outputs -type f || true
             exit 1
           fi
+          if [ -z "$AAB" ]; then
+            echo "ERROR: Release AAB not found"
+            find app/build/outputs -type f || true
+            exit 1
+          fi
           echo "UNSIGNED_APK=$PROJECT_DIR/$APK" >> "$GITHUB_ENV"
+          echo "UNSIGNED_AAB=$PROJECT_DIR/$AAB" >> "$GITHUB_ENV"
           echo "APK found: $APK"
+          echo "AAB found: $AAB"
 
       - name: Restore signing keystore
         shell: bash
@@ -655,20 +703,46 @@ jobs:
           set -euo pipefail
           mkdir -p signed
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V52-aligned.apk
-          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V52.apk             signed/VideoCallLive-V52-aligned.apk
+          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V53-aligned.apk
+          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V53.apk             signed/VideoCallLive-V53-aligned.apk
+
+      - name: Sign Android App Bundle
+        shell: bash
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          cp "$UNSIGNED_AAB" signed/VideoCallLive-V53.aab
+          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V53.aab "$KEY_ALIAS"
+
+      - name: Verify signed Android App Bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          jarsigner -verify -strict -verbose signed/VideoCallLive-V53.aab >/dev/null
+          echo "AAB signature verified"
 
       - name: Verify signed APK
         shell: bash
         run: |
           set -euo pipefail
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V52.apk
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V53.apk
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V52-Startup-Call-Chat-Quality-Fix
-          path: signed/VideoCallLive-V52.apk
+          name: VideoCallLive-V53-Play-Store-API36-AAB
+          path: signed/VideoCallLive-V53.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload signed AAB for Google Play Console
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoCallLive-V53-Play-Store-AAB
+          path: signed/VideoCallLive-V53.aab
           if-no-files-found: error
           retention-days: 30
