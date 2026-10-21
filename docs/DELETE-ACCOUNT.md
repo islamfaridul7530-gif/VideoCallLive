@@ -14,7 +14,7 @@ Deleting a shared chat or call record removes that record from the VideoCallLive
 
 ## If you cannot access the app
 
-Email **videocalllive7530support@gmail.com** with the subject **VideoCallLive account deletion request**. Include your VideoCallLive account UID if you know it. Do not include your password, OTP, complete payment-card details or other credentials. We will need to verify that you control the account before processing an external request.
+Email **[videocalllive7530support@gmail.com](mailto:videocalllive7530support@gmail.com)** with the subject **VideoCallLive account deletion request**. Include your VideoCallLive account UID if you know it. Do not include your password, OTP, complete payment-card details or other credentials. We will need to verify that you control the account before processing an external request.
 
 Please monitor this mailbox and verify the requester controls the account before processing an external deletion request. Do not ask the requester to send a password or OTP.
 
