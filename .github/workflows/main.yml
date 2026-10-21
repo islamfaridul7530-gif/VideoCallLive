@@ -643,6 +643,124 @@ jobs:
           PY
           sed -i 's/VideoCallLive-V53-aligned.apk/VideoCallLive-V53-aligned.apk/g; s/VideoCallLive-V53.apk/VideoCallLive-V53.apk/g' .github/workflows/main.yml
 
+      - name: Apply V54 privacy and account-deletion changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -f v45_patch/app/src/main/java/com/videocalllive/app/AccountDeletionActivity.java "$PROJECT_DIR/app/src/main/java/com/videocalllive/app/AccountDeletionActivity.java"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("extracted")
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if gradle is None:
+              raise SystemExit("app/build.gradle not found")
+          g = gradle.read_text()
+          if 'versionCode 53' not in g or 'versionName "53.0-play-store-api36-aab"' not in g:
+              raise SystemExit("Expected V53 version markers not found")
+          g = g.replace('versionCode 53', 'versionCode 54', 1)
+          g = g.replace('versionName "53.0-play-store-api36-aab"', 'versionName "54.0-privacy-account-deletion"', 1)
+          gradle.write_text(g)
+
+          def find(name):
+              p = next(root.rglob(name), None)
+              if p is None:
+                  raise SystemExit(name + " not found; refusing unsafe privacy patch")
+              return p
+
+          # Add visible policy and deletion entry points without changing the existing home design.
+          p = find("MyProfileActivity.java")
+          s = p.read_text()
+          old = 'String[] opts={"▣ My Photos","♡ Following","🔔 Notifications","🛡 Privacy & Safety","🚫 Blocked Users","? Help & Support","⚙ Settings"};'
+          new = 'String[] opts={"▣ My Photos","♡ Following","🔔 Notifications","🛡 Privacy & Safety","🚫 Blocked Users","? Help & Support","⚙ Settings","🔒 Privacy Policy","🗑 Delete Account"};'
+          if old not in s:
+              raise SystemExit("MyProfile options did not match expected V53 source")
+          s = s.replace(old, new, 1)
+          old = 'v->{if(raw.contains("My Photos"))startActivity(new Intent(this,PhotoManagerActivity.class));else if(raw.contains("Help & Support"))startActivity(new Intent(this,SupportActivity.class));else{String type=raw.replace("♡ ","").replace("🔔 ","").replace("🛡 ","").replace("🚫 ","").replace("? ","").replace("⚙ ","");startActivity(new Intent(this,SimpleProfileOptionActivity.class).putExtra("type",type));}});'
+          new = 'v->{if(raw.contains("My Photos"))startActivity(new Intent(this,PhotoManagerActivity.class));else if(raw.contains("Help & Support"))startActivity(new Intent(this,SupportActivity.class));else if(raw.contains("Privacy Policy")){try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/islamfaridul7530-gif/VideoCallLive/blob/main/docs/PRIVACY-POLICY.md")));}catch(Exception e){Ui.toast(this,"Could not open Privacy Policy");}}else if(raw.contains("Delete Account"))startActivity(new Intent(this,AccountDeletionActivity.class));else{String type=raw.replace("♡ ","").replace("🔔 ","").replace("🛡 ","").replace("🚫 ","").replace("? ","").replace("⚙ ","");startActivity(new Intent(this,SimpleProfileOptionActivity.class).putExtra("type",type));}});'
+          if old not in s:
+              raise SystemExit("MyProfile click handler did not match expected V53 source")
+          p.write_text(s.replace(old, new, 1))
+
+          # Move creator-application reads/writes out of the public user profile document.
+          p = find("CreatorApplicationActivity.java")
+          s = p.read_text()
+          old = 'db.collection("users").document(uid).get()'
+          if old not in s:
+              raise SystemExit("CreatorApplicationActivity account lookup was not found")
+          s = s.replace(old, 'db.collection("creatorApplications").document(uid).get()', 1)
+          old = 'String oldName=doc.getString("creatorName");if(oldName==null)oldName=doc.getString("displayName");if(oldName!=null)nameInput.setText(oldName);'
+          new = 'String oldName=doc.getString("creatorName");if(oldName==null)oldName=prefs.getString("profile_name","");if(oldName!=null)nameInput.setText(oldName);'
+          if old not in s:
+              raise SystemExit("Creator application name-prefill block did not match")
+          s = s.replace(old, new, 1)
+          old = 'String oldCountry=doc.getString("country");if(oldCountry!=null&&!"null".equals(oldCountry))countryInput.setText(oldCountry);'
+          new = 'String oldCountry=doc.getString("country");if(oldCountry==null)oldCountry=prefs.getString("profile_country","");if(oldCountry!=null&&!"null".equals(oldCountry))countryInput.setText(oldCountry);'
+          if old not in s:
+              raise SystemExit("Creator application country-prefill block did not match")
+          s = s.replace(old, new, 1)
+          old = 'db.collection("users").document(uid).set(data,SetOptions.merge()).addOnSuccessListener(v->{prefs.edit().putString("creator_status","pending").apply();Ui.toast(this,"Selfie uploaded and application submitted");recreate();}).addOnFailureListener(e->{submit.setEnabled(true);submit.setText("Verify Face & Submit Application");Ui.toast(this,"Application save failed. Please retry.");});'
+          new = 'db.collection("creatorApplications").document(uid).set(data,SetOptions.merge()).addOnSuccessListener(v->{prefs.edit().putString("creator_status","pending").apply();Ui.toast(this,"Selfie uploaded and application submitted");recreate();}).addOnFailureListener(e->{submit.setEnabled(true);submit.setText("Verify Face & Submit Application");Ui.toast(this,"Application save failed. Please retry.");});'
+          if old not in s:
+              raise SystemExit("Creator application write block did not match")
+          p.write_text(s.replace(old, new, 1))
+
+          # Keep submitted selfie and application details visible only to the applicant/admin.
+          p = find("AdminReviewActivity.java")
+          s = p.read_text()
+          old = 'db.collection("users").whereEqualTo("creatorApplicationStatus","pending").get()'
+          new = 'db.collection("creatorApplications").whereEqualTo("creatorApplicationStatus","pending").get()'
+          if old not in s:
+              raise SystemExit("Admin review query did not match")
+          s = s.replace(old, new, 1)
+          old = 'db.collection("users").document(uid).set(m,SetOptions.merge()).addOnSuccessListener(v->{Ui.toast(this,"Application "+status);load();}).addOnFailureListener(e->Ui.toast(this,"Update failed ("+"): "+e.getMessage()));'
+          new = 'db.collection("creatorApplications").document(uid).set(m,SetOptions.merge()).addOnSuccessListener(v->{Ui.toast(this,"Application "+status);load();}).addOnFailureListener(e->Ui.toast(this,"Update failed: "+e.getMessage()));'
+          if old not in s:
+              raise SystemExit("Admin review status update did not match")
+          p.write_text(s.replace(old, new, 1))
+
+          # Coin balances are fetched through the authenticated backend, never from public user docs.
+          p = find("HomeActivity.java")
+          s = p.read_text()
+          old = 'if(balance!=null){Long coins=d.getLong("coinBalance");balance.setText("🪙 "+(coins==null?"--":coins)+"  +");}'
+          if old not in s:
+              raise SystemExit("HomeActivity public coin-balance read was not found")
+          s = s.replace(old, '', 1)
+          marker = 'protected void onResume(){super.onResume();ProfilePhotoSync.ensure(this);if(me!=null){'
+          if marker not in s:
+              raise SystemExit("HomeActivity onResume insertion point missing")
+          s = s.replace(marker, 'void loadBalance(){if(balance==null||me==null)return;com.google.firebase.functions.FirebaseFunctions.getInstance("asia-south1").getHttpsCallable("getCoinBalance").call().addOnSuccessListener(result->{Object raw=result.getData();long coins=0;if(raw instanceof Map){Object value=((Map<?,?>)raw).get("coins");if(value instanceof Number)coins=((Number)value).longValue();}if(balance!=null)balance.setText("🪙 "+coins+"  +");}).addOnFailureListener(e->{if(balance!=null)balance.setText("🪙 --  +");});} protected void onResume(){super.onResume();ProfilePhotoSync.ensure(this);if(me!=null){loadBalance();', 1)
+          p.write_text(s)
+
+          p = find("TopUpActivity.java")
+          s = p.read_text()
+          a = s.find('    private void loadBalance() {')
+          b = s.find('    private void startPayment(String packId) {', a)
+          if a < 0 or b < 0:
+              raise SystemExit("TopUpActivity loadBalance method boundaries not found")
+          method = '''    private void loadBalance() {
+          if (FirebaseAuth.getInstance().getUid() == null) {
+              balance.setText("🪙 0 Coins");
+              return;
+          }
+          functions.getHttpsCallable("getCoinBalance").call()
+              .addOnSuccessListener(result -> {
+                  Object raw = result.getData();
+                  long coins = 0;
+                  if (raw instanceof Map) {
+                      Object value = ((Map<?,?>) raw).get("coins");
+                      if (value instanceof Number) coins = ((Number) value).longValue();
+                  }
+                  balance.setText("🪙 " + coins + " Coins");
+              })
+              .addOnFailureListener(e -> balance.setText("🪙 Balance unavailable"));
+      }
+
+'''
+          s = s[:a] + method + s[b:]
+          p.write_text(s)
+          print("V54: in-app privacy link, account deletion UI, private creator-application reads/writes and backend-only coin balance added.")
+          PY
       - name: Diagnose and install Android SDK API 36
         shell: bash
         run: |

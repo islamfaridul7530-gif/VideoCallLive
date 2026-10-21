@@ -478,7 +478,7 @@ exports.verifyCashfreePayment = onCall(
       }
 
       const userRef = db
-        .collection("users")
+        .collection("privateUsers")
         .doc(request.auth.uid);
 
       await db.runTransaction(
@@ -633,17 +633,12 @@ exports.getCoinBalance = onCall(
     }
 
     const snap = await db
-      .collection("users")
+      .collection("privateUsers")
       .doc(request.auth.uid)
       .get();
 
     return {
-
-      coins: Number(
-        snap.exists
-          ? snap.data().coins || 0
-          : 0
-      ),
+      coins: Number(snap.exists ? snap.data().coins || 0 : 0),
     };
   }
 );
@@ -685,5 +680,92 @@ exports.bootstrapAdmin = onCall(
       admin: true,
       uid: OWNER_ADMIN_UID,
     };
+  }
+);
+
+
+/*
+ * Delete the authenticated user's app account and associated app-side data.
+ * This operation is intentionally irreversible and requires an explicit confirmation.
+ */
+async function deleteDocumentsForQuery(query) {
+  const snapshot = await query.get();
+  for (const document of snapshot.docs) {
+    await db.recursiveDelete(document.ref);
+  }
+}
+
+async function deleteStoragePrefix(prefix) {
+  try {
+    await admin.storage().bucket().deleteFiles({ prefix });
+  } catch (error) {
+    if (Number(error.code) === 404) return;
+    console.error("Account deletion storage cleanup failed for prefix " + prefix, error);
+    throw new HttpsError("internal", "Stored photos could not be deleted. Please retry.");
+  }
+}
+
+exports.deleteMyAccount = onCall(
+  { region: "asia-south1", timeoutSeconds: 540, memory: "1GiB" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Please sign in before deleting your account.");
+    }
+    if (request.data?.confirmation !== "DELETE") {
+      throw new HttpsError("failed-precondition", "Explicit deletion confirmation is required.");
+    }
+
+    const uid = request.auth.uid;
+    const provider = request.auth.token?.firebase?.sign_in_provider || "unknown";
+    const authTime = Number(request.auth.token?.auth_time || 0);
+    if (provider !== "anonymous" && (!authTime || Date.now() / 1000 - authTime > 15 * 60)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "For account safety, sign out and sign back in before deleting this account."
+      );
+    }
+
+    // Delete stored user media first. If storage cleanup fails, keep the Auth account
+    // so the owner can retry rather than reporting a false success.
+    await deleteStoragePrefix("profilePhotos/" + uid + "/");
+    await deleteStoragePrefix("creatorApplications/" + uid + "/");
+
+    // Shared conversations are removed from the service so the deleted account's
+    // message content and identifiers are not retained in the app database.
+    await deleteDocumentsForQuery(
+      db.collection("chats").where("participants", "array-contains", uid)
+    );
+
+    const callQueries = await Promise.all([
+      db.collection("calls").where("callerId", "==", uid).get(),
+      db.collection("calls").where("receiverId", "==", uid).get(),
+    ]);
+    const callRefs = new Map();
+    for (const snapshot of callQueries) {
+      for (const document of snapshot.docs) callRefs.set(document.ref.path, document.ref);
+    }
+    for (const ref of callRefs.values()) await db.recursiveDelete(ref);
+
+    await deleteDocumentsForQuery(
+      db.collection("supportTickets").where("uid", "==", uid)
+    );
+    await deleteDocumentsForQuery(
+      db.collection("paymentOrders").where("uid", "==", uid)
+    );
+
+    await db.recursiveDelete(db.collection("creatorApplications").doc(uid));
+    await db.recursiveDelete(db.collection("privateUsers").doc(uid));
+    await db.recursiveDelete(db.collection("users").doc(uid));
+
+    try {
+      await admin.auth().deleteUser(uid);
+    } catch (error) {
+      if (error.code !== "auth/user-not-found") {
+        console.error("Account deletion Auth cleanup failed for UID " + uid, error);
+        throw new HttpsError("internal", "App data was removed, but account closure did not finish. Please contact support.");
+      }
+    }
+
+    return { success: true, deleted: true };
   }
 );

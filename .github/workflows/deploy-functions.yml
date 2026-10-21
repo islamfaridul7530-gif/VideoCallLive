@@ -57,3 +57,7 @@ jobs:
 
       - name: Deploy Firebase Functions
         run: firebase deploy --only functions,firestore:rules --project videocalllive-bcd7c --non-interactive --force
+
+      - name: Migrate legacy private user data
+        working-directory: functions
+        run: node migrate-private-user-data.js

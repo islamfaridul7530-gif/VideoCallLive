@@ -24,15 +24,66 @@ service cloud.firestore {
 
     // Public profile discovery is restricted to authenticated app users.
     // Users may only create/update their own user document.
+    function protectedUserKeys() {
+      return ['coins', 'coinBalance', 'creatorAge', 'creatorBio',
+              'creatorSelfiePath', 'creatorFaceDetected',
+              'creatorApplicationSubmittedAt', 'creatorApplicationStatus',
+              'creatorApproved', 'creatorApplicationReviewedAt', 'creatorStatus'];
+    }
+
     match /users/{uid} {
+      // This document contains the public profile only. Private balances and
+      // creator application details live in separately protected documents.
       allow read: if signedIn();
-      allow create: if isSelf(uid);
-      allow update: if isSelf(uid)
+      allow create: if isSelf(uid)
+                    && !request.resource.data.keys().hasAny(protectedUserKeys());
+      allow update: if (isSelf(uid)
+                        && !request.resource.data.diff(resource.data).affectedKeys()
+                          .hasAny(protectedUserKeys()))
                     || (isOwnerAdmin()
                         && request.resource.data.diff(resource.data).affectedKeys()
-                          .hasOnly(['creatorApplicationStatus', 'creatorStatus',
-                                    'creatorApproved', 'creatorApplicationReviewedAt']));
+                          .hasOnly(['creatorStatus']));
       allow delete: if false;
+    }
+
+    match /privateUsers/{uid} {
+      // Coin balances and private account metadata are only accessed by trusted
+      // server-side Firebase Admin code, never directly by mobile clients.
+      allow read, write: if false;
+    }
+
+    match /creatorApplications/{uid} {
+      function applicationFields() {
+        return ['creatorName', 'creatorAge', 'country', 'creatorBio',
+                'creatorSelfiePath', 'creatorFaceDetected',
+                'creatorApplicationSubmittedAt', 'creatorApplicationStatus',
+                'creatorApproved', 'creatorApplicationReviewedAt', 'creatorStatus'];
+      }
+      allow get, list: if isSelf(uid) || isOwnerAdmin();
+      allow create: if isSelf(uid)
+                    && request.resource.data.creatorApplicationStatus == 'pending'
+                    && request.resource.data.keys().hasOnly([
+                      'creatorName', 'creatorAge', 'country', 'creatorBio',
+                      'creatorSelfiePath', 'creatorFaceDetected',
+                      'creatorApplicationSubmittedAt', 'creatorApplicationStatus',
+                      'creatorStatus'
+                    ]);
+      allow update: if (isSelf(uid)
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly([
+                            'creatorName', 'creatorAge', 'country', 'creatorBio',
+                            'creatorSelfiePath', 'creatorFaceDetected',
+                            'creatorApplicationSubmittedAt', 'creatorApplicationStatus',
+                            'creatorStatus'
+                          ])
+                        && request.resource.data.creatorApplicationStatus == 'pending')
+                    || (isOwnerAdmin()
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly([
+                            'creatorApplicationStatus', 'creatorApproved',
+                            'creatorApplicationReviewedAt', 'creatorStatus'
+                          ]));
+      allow delete: if isSelf(uid) || isOwnerAdmin();
     }
 
     // Chat documents must list exactly the two UIDs represented by the deterministic room ID.
