@@ -643,11 +643,13 @@ jobs:
           PY
           sed -i 's/VideoCallLive-V53-aligned.apk/VideoCallLive-V53-aligned.apk/g; s/VideoCallLive-V53.apk/VideoCallLive-V53.apk/g' .github/workflows/main.yml
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Install Android SDK API 36
         shell: bash
         run: |
-          set -e
-          yes | sdkmanager --licenses >/dev/null
+          set -euo pipefail
           sdkmanager --sdk_root="$ANDROID_HOME" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Upload source diagnostics for code review
