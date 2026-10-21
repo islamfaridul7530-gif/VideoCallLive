@@ -48,7 +48,7 @@ VideoCallLive is intended for adults aged 18 and over. Do not use the app if you
 
 You may edit profile information in the app, stop granting camera/microphone access in Android settings, and request account deletion using **Profile → Delete Account** after the deletion update is installed. For a question about this policy or a deletion request when you cannot access the app, email the address below. This mailbox should be monitored regularly:
 
-**Privacy/support email: videocalllive7530support@gmail.com**
+**Privacy/support email: [videocalllive7530support@gmail.com](mailto:videocalllive7530support@gmail.com)**
 
 Do not send passwords, OTPs or payment credentials in a support request.
 
