@@ -758,9 +758,9 @@ jobs:
                   balance.setText("🪙 " + coins + " Coins");
               })
               .addOnFailureListener(e -> balance.setText("🪙 Balance unavailable"));
-      }
+                }
 
-'''
+          '''
           s = s[:a] + method + s[b:]
           p.write_text(s)
           print("V54: in-app privacy link, account deletion UI, private creator-application reads/writes and backend-only coin balance added.")
