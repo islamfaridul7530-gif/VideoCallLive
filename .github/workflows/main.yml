@@ -643,21 +643,45 @@ jobs:
           PY
           sed -i 's/VideoCallLive-V53-aligned.apk/VideoCallLive-V53-aligned.apk/g; s/VideoCallLive-V53.apk/VideoCallLive-V53.apk/g' .github/workflows/main.yml
 
-      - name: Install Android SDK API 36
+      - name: Diagnose and install Android SDK API 36
         shell: bash
         run: |
-          set -eu
-          echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
-          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
-          if [ -z "$SDKMANAGER" ]; then
-            echo "ERROR: sdkmanager not found under $SDK_ROOT/cmdline-tools"
-            find "$SDK_ROOT" -maxdepth 4 -type f -name sdkmanager 2>/dev/null || true
-            exit 1
-          fi
-          echo "Using sdkmanager: $SDKMANAGER"
-          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses
-          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-36" "build-tools;36.0.0"
+          mkdir -p /tmp/android-sdk-diagnostics
+          LOG=/tmp/android-sdk-diagnostics/sdkmanager.txt
+          {
+            echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
+            echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-unset}"
+            SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+            echo "SDK_ROOT=$SDK_ROOT"
+            echo "SDK directories:"
+            ls -la "$SDK_ROOT" 2>&1
+            echo "sdkmanager candidates:"
+            find "$SDK_ROOT" /opt/android-sdk /usr/lib/android-sdk -type f -name sdkmanager 2>/dev/null | sort -V
+            echo "Installed platform folders:"
+            ls -la "$SDK_ROOT/platforms" 2>&1
+            echo "Installed build-tools folders:"
+            ls -la "$SDK_ROOT/build-tools" 2>&1
+            SDKMANAGER="$(find "$SDK_ROOT" /opt/android-sdk /usr/lib/android-sdk -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
+            if [ -z "$SDKMANAGER" ]; then
+              echo "SDKMANAGER_NOT_FOUND"
+            else
+              echo "Using sdkmanager: $SDKMANAGER"
+              set +e
+              yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses
+              echo "LICENSE_EXIT=$?"
+              "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-36" "build-tools;36.0.0"
+              echo "INSTALL_EXIT=$?"
+            fi
+          } > "$LOG" 2>&1
+          cat "$LOG"
+
+      - name: Upload Android SDK diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoCallLive-V53-Android-SDK-Diagnostics
+          path: /tmp/android-sdk-diagnostics/sdkmanager.txt
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload source diagnostics for code review
         uses: actions/upload-artifact@v4
