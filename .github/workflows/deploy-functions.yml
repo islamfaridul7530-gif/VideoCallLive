@@ -2,6 +2,12 @@ name: Deploy Firebase Functions
 
 on:
   workflow_dispatch:
+    inputs:
+      run_migration:
+        description: "Run the legacy private-user-data migration after deployment (only after backup and review)"
+        required: true
+        default: false
+        type: boolean
   push:
     branches: [main]
     paths:
@@ -45,6 +51,17 @@ jobs:
 
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
 
+      - name: Validate Cashfree secrets
+        shell: bash
+        env:
+          CASHFREE_APP_ID: ${{ secrets.CASHFREE_APP_ID }}
+          CASHFREE_SECRET_KEY: ${{ secrets.CASHFREE_SECRET_KEY }}
+        run: |
+          if [ -z "$CASHFREE_APP_ID" ] || [ -z "$CASHFREE_SECRET_KEY" ]; then
+            echo "CASHFREE_APP_ID or CASHFREE_SECRET_KEY secret is missing"
+            exit 1
+          fi
+
       - name: Set Cashfree Firebase secrets
         shell: bash
         env:
@@ -52,12 +69,12 @@ jobs:
           CASHFREE_SECRET_KEY: ${{ secrets.CASHFREE_SECRET_KEY }}
         run: |
           printf '%s' "$CASHFREE_APP_ID" | firebase functions:secrets:set CASHFREE_APP_ID --project videocalllive-bcd7c --data-file=-
-
           printf '%s' "$CASHFREE_SECRET_KEY" | firebase functions:secrets:set CASHFREE_SECRET_KEY --project videocalllive-bcd7c --data-file=-
 
       - name: Deploy Firebase Functions
         run: firebase deploy --only functions,firestore:rules --project videocalllive-bcd7c --non-interactive --force
 
       - name: Migrate legacy private user data
+        if: github.event_name == 'workflow_dispatch' && inputs.run_migration == true
         working-directory: functions
         run: node migrate-private-user-data.js
