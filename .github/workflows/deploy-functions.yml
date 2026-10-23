@@ -71,10 +71,17 @@ jobs:
           printf '%s' "$CASHFREE_APP_ID" | firebase functions:secrets:set CASHFREE_APP_ID --project videocalllive-bcd7c --data-file=-
           printf '%s' "$CASHFREE_SECRET_KEY" | firebase functions:secrets:set CASHFREE_SECRET_KEY --project videocalllive-bcd7c --data-file=-
 
+      # Deploy backend code first, while the existing Firestore rules remain in place.
       - name: Deploy Firebase Functions
-        run: firebase deploy --only functions,firestore:rules --project videocalllive-bcd7c --non-interactive --force
+        run: firebase deploy --only functions --project videocalllive-bcd7c --non-interactive --force
 
+      # The migration is deliberately opt-in. Do not tighten rules until it completes.
       - name: Migrate legacy private user data
         if: github.event_name == 'workflow_dispatch' && inputs.run_migration == true
         working-directory: functions
         run: node migrate-private-user-data.js
+
+      # Rules deploy only in the explicitly approved migration run, after successful migration.
+      - name: Deploy Firestore Rules after migration
+        if: github.event_name == 'workflow_dispatch' && inputs.run_migration == true
+        run: firebase deploy --only firestore:rules --project videocalllive-bcd7c --non-interactive --force
