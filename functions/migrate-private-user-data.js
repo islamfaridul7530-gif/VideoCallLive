@@ -30,19 +30,18 @@ async function migrateOne(userDoc) {
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(data, "creatorApplicationStatus") ||
-      Object.prototype.hasOwnProperty.call(data, "creatorAge") ||
-      Object.prototype.hasOwnProperty.call(data, "creatorSelfiePath")) {
-    hadApplication = true;
+  if (hadApplication) {
+    // Preserve legacy application fields in the private application record. Country
+    // may also be used by the public profile, so copy it but do not remove it there.
     if (data.creatorName !== undefined) {
       application.creatorName = data.creatorName;
-      // When a creator application existed, the old app wrote the applicant's full name
-      // into the public user document. The public displayName remains available instead.
+      // The public displayName remains available after removing the application-only name.
       updates.creatorName = F.delete();
     }
-  }
+    if (data.country !== undefined && application.country === undefined) {
+      application.country = data.country;
+    }
 
-  if (hadApplication) {
     const appRef = db.collection("creatorApplications").doc(userDoc.id);
     const existingApp = await appRef.get();
     const merged = { ...application };
