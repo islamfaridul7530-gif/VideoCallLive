@@ -642,13 +642,24 @@ exports.getCoinBalance = onCall(
       );
     }
 
-    const snap = await db
-      .collection("privateUsers")
-      .doc(request.auth.uid)
-      .get();
+    const uid = request.auth.uid;
+    const privateSnap = await db.collection("privateUsers").doc(uid).get();
+    const privateData = privateSnap.exists ? privateSnap.data() : {};
 
+    // During the staged rollout, some accounts may still have their balance
+    // only in the legacy public document. Prefer a real private balance, but
+    // fall back to legacy data when no numeric private balance exists.
+    if (typeof privateData.coins === "number") {
+      return { coins: privateData.coins };
+    }
+
+    const legacySnap = await db.collection("users").doc(uid).get();
+    const legacyData = legacySnap.exists ? legacySnap.data() : {};
     return {
-      coins: Number(snap.exists ? snap.data().coins || 0 : 0),
+      coins: Math.max(
+        Number(legacyData.coins || 0),
+        Number(legacyData.coinBalance || 0)
+      ),
     };
   }
 );
