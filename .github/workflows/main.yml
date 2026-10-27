@@ -790,6 +790,91 @@ jobs:
               z.write(gradle, "app/build.gradle")
           print("Created V54 source diagnostics archive")
           PY
+      - name: Apply V55 Android notification permission and channel bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          def find(name):
+              p = next(root.rglob(name), None)
+              if p is None:
+                  raise SystemExit(name + " not found; refusing unsafe V55 patch")
+              return p
+
+          gradle = find("build.gradle")
+          g = gradle.read_text()
+          if 'versionCode 54' not in g or 'versionName "54.0-privacy-account-deletion"' not in g:
+              # The app module build.gradle may be the only matching file.
+              gradle = next(root.rglob("app/build.gradle"), None)
+              if gradle is None:
+                  raise SystemExit("app/build.gradle not found")
+              g = gradle.read_text()
+          if 'versionCode 54' not in g or 'versionName "54.0-privacy-account-deletion"' not in g:
+              raise SystemExit("Expected V54 version markers not found")
+          gradle.write_text(g.replace('versionCode 54','versionCode 55',1).replace('versionName "54.0-privacy-account-deletion"','versionName "55.0-notification-permission-bootstrap"',1))
+
+          manifest = find("AndroidManifest.xml")
+          s = manifest.read_text()
+          if 'android.permission.POST_NOTIFICATIONS' not in s:
+              needle = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
+              if needle not in s:
+                  raise SystemExit("AndroidManifest opening tag did not match")
+              s = s.replace(needle, needle + '\n<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>', 1)
+              manifest.write_text(s)
+
+          main = find("MainActivity.java")
+          s = main.read_text()
+          if 'ensureMessageNotificationChannel();' not in s:
+              needle = 'super.onCreate(savedInstanceState);'
+              if needle not in s:
+                  raise SystemExit("MainActivity onCreate insertion point missing")
+              s = s.replace(needle, needle + '\n        ensureMessageNotificationChannel();\n        requestNotificationPermissionIfNeeded();', 1)
+          if 'private void ensureMessageNotificationChannel()' not in s:
+              marker = '    private void saveAndShow(Throwable e) {'
+              if marker not in s:
+                  raise SystemExit("MainActivity method insertion point missing")
+              methods = '''
+              private void ensureMessageNotificationChannel() {
+                  if (android.os.Build.VERSION.SDK_INT >= 26) {
+                      android.app.NotificationManager manager = getSystemService(android.app.NotificationManager.class);
+                      if (manager != null && manager.getNotificationChannel("messages") == null) {
+                          android.app.NotificationChannel channel = new android.app.NotificationChannel(
+                              "messages", "Messages", android.app.NotificationManager.IMPORTANCE_DEFAULT);
+                          channel.setDescription("New VideoCallLive chat messages");
+                          manager.createNotificationChannel(channel);
+                      }
+                  }
+              }
+
+              private void requestNotificationPermissionIfNeeded() {
+                  if (android.os.Build.VERSION.SDK_INT >= 33 &&
+                      checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                      requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 5501);
+                  }
+              }
+
+          '''
+              s = s.replace(marker, methods + marker, 1)
+          main.write_text(s)
+          print("V55: Android notification permission declared, Messages channel created, and runtime permission requested.")
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          root = Path("extracted")
+          src = next(root.rglob("app/src/main/java"), None)
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if not src or not gradle:
+              raise SystemExit("V55 source tree not found")
+          out = Path("/tmp/VideoCallLive-V55-Source-Diagnostics.zip")
+          with ZipFile(out, "w", ZIP_DEFLATED) as z:
+              for p in src.rglob("*.java"):
+                  z.write(p, p.relative_to(src.parent.parent.parent))
+              z.write(gradle, "app/build.gradle")
+          print(f"Created source archive: {out}")
+          PY
       - name: Diagnose and install Android SDK API 36
         shell: bash
         run: |
