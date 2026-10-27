@@ -827,10 +827,13 @@ jobs:
           main = find("MainActivity.java")
           s = main.read_text()
           if 'ensureMessageNotificationChannel();' not in s:
-              needle = 'super.onCreate(savedInstanceState);'
-              if needle not in s:
-                  raise SystemExit("MainActivity onCreate insertion point missing")
-              s = s.replace(needle, needle + '\n        ensureMessageNotificationChannel();\n        requestNotificationPermissionIfNeeded();', 1)
+              import re
+              match = re.search(r'(?m)^([ \\t]*)super\\.onCreate\\([^;\\n]*\\);', s)
+              if not match:
+                  raise SystemExit("MainActivity onCreate super-call not found; refusing unsafe V55 patch")
+              indent = match.group(1)
+              insertion = '\\n' + indent + 'ensureMessageNotificationChannel();\\n' + indent + 'requestNotificationPermissionIfNeeded();'
+              s = s[:match.end()] + insertion + s[match.end():]
           if 'private void ensureMessageNotificationChannel()' not in s:
               marker = '    private void saveAndShow(Throwable e) {'
               if marker not in s:
