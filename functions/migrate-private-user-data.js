@@ -62,12 +62,28 @@ async function migrateOne(userDoc) {
   if (hadLegacyCoins) {
     const privateRef = db.collection("privateUsers").doc(userDoc.id);
     const privateDoc = await privateRef.get();
-    if (!privateDoc.exists || typeof privateDoc.data().coins !== "number") {
+    const privateData = privateDoc.exists ? privateDoc.data() : {};
+    const legacyBalance = Math.max(publicCoins, publicCoinBalance);
+
+    if (typeof privateData.coins !== "number") {
+      // First migration of this account: copy the legacy balance and mark it.
       await privateRef.set({
-        coins: Math.max(publicCoins, publicCoinBalance),
+        coins: legacyBalance,
         migratedAt: admin.firestore.FieldValue.serverTimestamp(),
+        legacyCoinsMigrated: true,
       }, { merge: true });
+    } else if (privateData.legacyCoinsMigrated === true) {
+      // The payment function already seeded this private balance from legacy data.
+      // It is safe to remove the old public fields.
+    } else {
+      // We cannot infer whether this private balance already includes legacy coins.
+      // Keep the legacy fields and stop the migration rather than lose or duplicate coins.
+      throw new Error(
+        "Coin balance conflict for user " + userDoc.id +
+        ": private balance exists without legacyCoinsMigrated marker; legacy fields were preserved."
+      );
     }
+
     updates.coins = F.delete();
     updates.coinBalance = F.delete();
   }
