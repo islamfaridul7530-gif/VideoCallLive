@@ -480,6 +480,9 @@ exports.verifyCashfreePayment = onCall(
       const userRef = db
         .collection("privateUsers")
         .doc(request.auth.uid);
+      const legacyUserRef = db
+        .collection("users")
+        .doc(request.auth.uid);
 
       await db.runTransaction(
         async (transaction) => {
@@ -517,17 +520,21 @@ exports.verifyCashfreePayment = onCall(
             return;
           }
 
-          const userSnap =
-            await transaction.get(
-              userRef
-            );
-
-          const currentCoins =
-            Number(
-              userSnap.exists
-                ? userSnap.data().coins || 0
-                : 0
-            );
+          // Read both balance locations before writing. If this account has not
+          // yet been migrated, seed the private balance from its legacy balance
+          // exactly once as part of the same transaction that credits the purchase.
+          const userSnap = await transaction.get(userRef);
+          const legacyUserSnap = await transaction.get(legacyUserRef);
+          const privateData = userSnap.exists ? userSnap.data() : {};
+          const legacyData = legacyUserSnap.exists ? legacyUserSnap.data() : {};
+          const hasPrivateCoins = typeof privateData.coins === "number";
+          const legacyCoins = Math.max(
+            Number(legacyData.coins || 0),
+            Number(legacyData.coinBalance || 0)
+          );
+          const currentCoins = hasPrivateCoins
+            ? privateData.coins
+            : legacyCoins;
 
           const coinsToAdd =
             Number(
@@ -544,7 +551,10 @@ exports.verifyCashfreePayment = onCall(
 
             {
               coins: newCoins,
-
+              ...(hasPrivateCoins ? {} : {
+                migratedAt: admin.firestore.FieldValue.serverTimestamp(),
+                legacyCoinsMigrated: true,
+              }),
               updatedAt:
                 admin.firestore.FieldValue
                   .serverTimestamp(),
