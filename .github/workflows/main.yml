@@ -828,7 +828,7 @@ jobs:
           s = main.read_text()
           if 'ensureMessageNotificationChannel();' not in s:
               import re
-              match = re.search(r'(?m)^([ \\t]*)super\\.onCreate\\([^;\\n]*\\);', s)
+              match = re.search(r'(?m)^([ \t]*)super\.onCreate\([^;\n]*\);', s)
               if not match:
                   raise SystemExit("MainActivity onCreate super-call not found; refusing unsafe V55 patch")
               indent = match.group(1)
