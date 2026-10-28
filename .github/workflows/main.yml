@@ -832,7 +832,7 @@ jobs:
               if not match:
                   raise SystemExit("MainActivity onCreate super-call not found; refusing unsafe V55 patch")
               indent = match.group(1)
-              insertion = '\\n' + indent + 'ensureMessageNotificationChannel();\\n' + indent + 'requestNotificationPermissionIfNeeded();'
+              insertion = '\n' + indent + 'ensureMessageNotificationChannel();\n' + indent + 'requestNotificationPermissionIfNeeded();'
               s = s[:match.end()] + insertion + s[match.end():]
           if 'private void ensureMessageNotificationChannel()' not in s:
               marker = '    private void saveAndShow(Throwable e) {'
