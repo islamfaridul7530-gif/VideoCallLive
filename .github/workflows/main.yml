@@ -1148,23 +1148,23 @@ jobs:
           u = ui.read_text()
           old_nav = 'nav.addView(b);}return nav;}'
           new_nav = '''nav.addView(b);} attachUnreadCount(a,nav);return nav;}
- public static void attachUnreadCount(Activity a, LinearLayout nav){
-  if(nav.getChildCount()<2)return;
-  final Button chats=(Button)nav.getChildAt(1);
-  final String uid=com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
-  if(uid==null)return;
-  chats.setText("☏\\nChats");
-  com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("chats").whereArrayContains("participants",uid).addSnapshotListener((q,e)->{
-   if(e!=null||q==null)return;
-   long total=0;
-   for(com.google.firebase.firestore.DocumentSnapshot d:q.getDocuments()){
-    Object raw=d.get("unreadCounts");
-    if(raw instanceof java.util.Map){Object value=((java.util.Map<?,?>)raw).get(uid);if(value instanceof Number)total+=Math.max(0,((Number)value).longValue());}
-   }
-   String count=total>99?"99+":String.valueOf(total);
-   chats.setText(total>0?"☏ "+count+"\\nChats":"☏\\nChats");
-  });
- }'''
+           public static void attachUnreadCount(Activity a, LinearLayout nav){
+            if(nav.getChildCount()<2)return;
+            final Button chats=(Button)nav.getChildAt(1);
+            final String uid=com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
+            if(uid==null)return;
+            chats.setText("☏\\nChats");
+            com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("chats").whereArrayContains("participants",uid).addSnapshotListener((q,e)->{
+             if(e!=null||q==null)return;
+             long total=0;
+             for(com.google.firebase.firestore.DocumentSnapshot d:q.getDocuments()){
+              Object raw=d.get("unreadCounts");
+              if(raw instanceof java.util.Map){Object value=((java.util.Map<?,?>)raw).get(uid);if(value instanceof Number)total+=Math.max(0,((Number)value).longValue());}
+             }
+             String count=total>99?"99+":String.valueOf(total);
+             chats.setText(total>0?"☏ "+count+"\\nChats":"☏\\nChats");
+            });
+           }'''
           if old_nav not in u:
               raise SystemExit("Ui.nav() insertion anchor not found; refusing unsafe V59 patch")
           u=u.replace(old_nav,new_nav,1)
