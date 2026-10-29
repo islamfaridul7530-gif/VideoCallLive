@@ -1143,6 +1143,57 @@ jobs:
               a = a.replace('</application>', '<service android:name=".ChatMessagingService" android:exported="false"><intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT"/></intent-filter></service>\n</application>',1)
           manifest.write_text(a)
 
+          # V59: show the live unread-message total on the Chats item in the bottom navigation on every main screen.
+          ui = find("Ui.java")
+          u = ui.read_text()
+          old_nav = 'nav.addView(b);}return nav;}'
+          new_nav = '''nav.addView(b);} attachUnreadCount(a,nav);return nav;}
+ public static void attachUnreadCount(Activity a, LinearLayout nav){
+  if(nav.getChildCount()<2)return;
+  final Button chats=(Button)nav.getChildAt(1);
+  final String uid=com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
+  if(uid==null)return;
+  chats.setText("☏\\nChats");
+  com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("chats").whereArrayContains("participants",uid).addSnapshotListener((q,e)->{
+   if(e!=null||q==null)return;
+   long total=0;
+   for(com.google.firebase.firestore.DocumentSnapshot d:q.getDocuments()){
+    Object raw=d.get("unreadCounts");
+    if(raw instanceof java.util.Map){Object value=((java.util.Map<?,?>)raw).get(uid);if(value instanceof Number)total+=Math.max(0,((Number)value).longValue());}
+   }
+   String count=total>99?"99+":String.valueOf(total);
+   chats.setText(total>0?"☏ "+count+"\\nChats":"☏\\nChats");
+  });
+ }'''
+          if old_nav not in u:
+              raise SystemExit("Ui.nav() insertion anchor not found; refusing unsafe V59 patch")
+          u=u.replace(old_nav,new_nav,1)
+          ui.write_text(u)
+
+          # Register FCM on each main destination as well as Home so returning users refresh their token.
+          for activity in ["MessagesActivity.java","VideoHubActivity.java","MyProfileActivity.java"]:
+              p=find(activity); s=p.read_text()
+              if "NotificationSetup.ensure(this)" not in s:
+                  if activity=="MessagesActivity.java":
+                      anchor=' public void onCreate(Bundle b){super.onCreate(b);'
+                      replacement=' public void onCreate(Bundle b){super.onCreate(b);NotificationSetup.ensure(this);'
+                  elif activity=="VideoHubActivity.java":
+                      anchor=' public void onCreate(Bundle x){super.onCreate(x);'
+                      replacement=' public void onCreate(Bundle x){super.onCreate(x);NotificationSetup.ensure(this);'
+                  else:
+                      anchor=' public void onCreate(Bundle b){super.onCreate(b);'
+                      replacement=' public void onCreate(Bundle b){super.onCreate(b);NotificationSetup.ensure(this);'
+                  if anchor not in s:
+                      raise SystemExit(activity+" onCreate anchor not found")
+                  s=s.replace(anchor,replacement,1);p.write_text(s)
+
+          # Advance app version for the navigation badge change.
+          g=gradle.read_text()
+          if 'versionCode 58' not in g or 'versionName "58.0-chat-notifications-unread-count"' not in g:
+              raise SystemExit("Expected V58 version markers before V59 change not found")
+          gradle.write_text(g.replace('versionCode 58','versionCode 59',1).replace('versionName "58.0-chat-notifications-unread-count"','versionName "59.0-global-chat-unread-badge"',1))
+          print("V59: live total unread badge added to bottom Chats navigation item across Home, Chats, Video and Profile screens.")
+
           # Versioned diagnostics from the final Java source.
           from zipfile import ZipFile, ZIP_DEFLATED
           java_root = next(root.rglob("app/src/main/java"), None)
