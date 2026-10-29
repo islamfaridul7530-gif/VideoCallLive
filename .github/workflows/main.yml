@@ -1047,10 +1047,11 @@ jobs:
                 update.put("participants",Arrays.asList(me,other));
                 update.put("lastText",body);
                 update.put("updatedAt",System.currentTimeMillis());
-                update.put("unreadCounts."+other,FieldValue.increment(1));
                 chatRef.set(update,SetOptions.merge())
-                  .addOnSuccessListener(v->{input.setText("");send.setEnabled(true);})
-                  .addOnFailureListener(e->{send.setEnabled(true);Ui.toast(this,"Message sent, but unread count update failed: "+e.getMessage());});
+                  .addOnSuccessListener(v->chatRef.update("unreadCounts."+other,FieldValue.increment(1))
+                    .addOnSuccessListener(z->{input.setText("");send.setEnabled(true);})
+                    .addOnFailureListener(e->{send.setEnabled(true);Ui.toast(this,"Message sent, but unread count update failed: "+e.getMessage());}))
+                  .addOnFailureListener(e->{send.setEnabled(true);Ui.toast(this,"Message sent, but chat summary update failed: "+e.getMessage());});
               })
               .addOnFailureListener(e->{send.setEnabled(true);Ui.toast(this,"Message failed: "+e.getMessage());});
           }
@@ -1080,6 +1081,14 @@ jobs:
           if oldclick not in m: raise SystemExit("Chat row click anchor not found")
           m = m.replace(oldclick,newclick,1)
           messages.write_text(m)
+
+          home = find("HomeActivity.java")
+          h = home.read_text()
+          if "NotificationSetup.ensure(this)" not in h:
+              if "void onResume(){super.onResume();ProfilePhotoSync.ensure(this);" not in h:
+                  raise SystemExit("HomeActivity onResume anchor not found")
+              h = h.replace("void onResume(){super.onResume();ProfilePhotoSync.ensure(this);", "void onResume(){super.onResume();NotificationSetup.ensure(this);ProfilePhotoSync.ensure(this);", 1)
+          home.write_text(h)
 
           # Register FCM token and create the Android notification channel.
           src = next(root.rglob("app/src/main/java/com/videocalllive/app"), None)
