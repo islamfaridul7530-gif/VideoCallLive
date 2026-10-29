@@ -1292,7 +1292,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V58-Play-Store-API36-AAB
+          name: VideoCallLive-V58-APK
           path: signed/VideoCallLive-V58.apk
           if-no-files-found: error
           retention-days: 30
