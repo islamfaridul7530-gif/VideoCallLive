@@ -1000,6 +1000,152 @@ jobs:
           print("V57 saved-session screen and login-button vertical spacing patch applied.")
           PY
 
+      - name: Apply V58 chat unread-count and push-notification fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          def find(name):
+              p = next(root.rglob(name), None)
+              if p is None: raise SystemExit(name + " not found; refusing unsafe V58 patch")
+              return p
+
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if not gradle: raise SystemExit("app/build.gradle not found")
+          g = gradle.read_text()
+          if 'versionCode 57' not in g or 'versionName "57.0-saved-session-and-login-layout-fix"' not in g:
+              raise SystemExit("Expected V57 version markers not found")
+          g = g.replace('versionCode 57', 'versionCode 58', 1)
+          g = g.replace('versionName "57.0-saved-session-and-login-layout-fix"', 'versionName "58.0-chat-notifications-unread-count"', 1)
+          if "firebase-messaging" not in g:
+              g = g.replace("implementation 'com.google.firebase:firebase-functions'", "implementation 'com.google.firebase:firebase-functions'\n implementation 'com.google.firebase:firebase-messaging'")
+          gradle.write_text(g)
+
+          chat = find("ChatActivity.java")
+          c = chat.read_text()
+          # Reset the current user's unread count once the chat document is available/opened.
+          anchor = 'reg=db.collection("chats").document(room).collection("messages")'
+          if anchor not in c: raise SystemExit("Chat message listener anchor not found")
+          if 'unreadCounts.' not in c:
+              c = c.replace(anchor, 'db.collection("chats").document(room).update("unreadCounts."+me, 0L);\n    '+anchor, 1)
+          # Atomically increment the receiver's unread count after the message write succeeds.
+          start = c.find(' void send(){')
+          end = c.find(' protected void onDestroy()', start)
+          if start < 0 or end < 0: raise SystemExit("Chat send method boundaries not found")
+          send_method = ''' void send(){
+            String body=input.getText().toString().trim();
+            if(body.isEmpty())return;
+            send.setEnabled(false);
+            Map<String,Object> m=new HashMap<>();
+            m.put("senderId",me);m.put("receiverId",other);m.put("text",body);m.put("createdAt",System.currentTimeMillis());
+            DocumentReference chatRef=db.collection("chats").document(room);
+            chatRef.collection("messages").add(m)
+              .addOnSuccessListener(messageRef->{
+                Map<String,Object> update=new HashMap<>();
+                update.put("participants",Arrays.asList(me,other));
+                update.put("lastText",body);
+                update.put("updatedAt",System.currentTimeMillis());
+                update.put("unreadCounts."+other,FieldValue.increment(1));
+                chatRef.set(update,SetOptions.merge())
+                  .addOnSuccessListener(v->{input.setText("");send.setEnabled(true);})
+                  .addOnFailureListener(e->{send.setEnabled(true);Ui.toast(this,"Message sent, but unread count update failed: "+e.getMessage());});
+              })
+              .addOnFailureListener(e->{send.setEnabled(true);Ui.toast(this,"Message failed: "+e.getMessage());});
+          }
+          '''
+          c = c[:start] + send_method + c[end:]
+          chat.write_text(c)
+
+          messages = find("MessagesActivity.java")
+          m = messages.read_text()
+          # Display a visible unread badge beside the latest message preview.
+          old = 'TextView st=new TextView(this);st.setText("○ Offline");'
+          new = '''TextView unread=new TextView(this);
+          Object countsObj=d.get("unreadCounts");
+          long unreadCount=0;
+          if(countsObj instanceof Map){Object count=((Map<?,?>)countsObj).get(uid);if(count instanceof Number)unreadCount=((Number)count).longValue();}
+          unread.setText(unreadCount>0?(unreadCount>99?"99+":String.valueOf(unreadCount)):"");
+          unread.setTextColor(Color.WHITE);unread.setTextSize(13);unread.setGravity(Gravity.CENTER);
+          unread.setPadding(Ui.dp(this,8),Ui.dp(this,3),Ui.dp(this,8),Ui.dp(this,3));
+          unread.setBackground(Ui.bg(Ui.PINK,Ui.dp(this,18)));
+          if(unreadCount==0)unread.setVisibility(View.GONE);
+          card.addView(unread,new LinearLayout.LayoutParams(-2,Ui.dp(this,28)));
+          TextView st=new TextView(this);st.setText("○ Offline");'''
+          if old not in m: raise SystemExit("MessagesActivity unread badge insertion anchor not found")
+          m = m.replace(old,new,1)
+          oldclick = 'card.setOnClickListener(v->startActivity(new Intent(this,ChatActivity.class).putExtra("otherUid",id).putExtra("name",nm.getText().toString())));'
+          newclick = 'card.setOnClickListener(v->{db.collection("chats").document(d.getId()).update("unreadCounts."+uid,0L);startActivity(new Intent(this,ChatActivity.class).putExtra("otherUid",id).putExtra("name",nm.getText().toString()));});'
+          if oldclick not in m: raise SystemExit("Chat row click anchor not found")
+          m = m.replace(oldclick,newclick,1)
+          messages.write_text(m)
+
+          # Register FCM token and create the Android notification channel.
+          src = next(root.rglob("app/src/main/java/com/videocalllive/app"), None)
+          if not src: raise SystemExit("Java package source directory not found")
+          setup = src / "NotificationSetup.java"
+          setup.write_text("""package com.videocalllive.app;
+          import android.Manifest;import android.app.*;import android.content.*;import android.content.pm.PackageManager;import android.os.Build;
+          import androidx.core.app.ActivityCompat;import androidx.core.content.ContextCompat;
+          import com.google.firebase.auth.FirebaseAuth;import com.google.firebase.firestore.FieldValue;import com.google.firebase.firestore.FirebaseFirestore;import com.google.firebase.messaging.FirebaseMessaging;
+          public final class NotificationSetup {
+            private static final int REQUEST_POST_NOTIFICATIONS=5801;
+            private NotificationSetup(){}
+            public static void ensure(Activity activity){
+              if(Build.VERSION.SDK_INT>=33 && ContextCompat.checkSelfPermission(activity,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){
+                ActivityCompat.requestPermissions(activity,new String[]{Manifest.permission.POST_NOTIFICATIONS},REQUEST_POST_NOTIFICATIONS);
+              }
+              if(Build.VERSION.SDK_INT>=26){
+                NotificationManager nm=(NotificationManager)activity.getSystemService(Context.NOTIFICATION_SERVICE);
+                if(nm!=null)nm.createNotificationChannel(new NotificationChannel("chat_messages","Chat messages",NotificationManager.IMPORTANCE_HIGH));
+              }
+              String uid=FirebaseAuth.getInstance().getUid();if(uid==null)return;
+              FirebaseMessaging.getInstance().getToken().addOnSuccessListener(token->{
+                if(token!=null&&!token.isEmpty())FirebaseFirestore.getInstance().collection("users").document(uid).update("fcmTokens",FieldValue.arrayUnion(token)).addOnFailureListener(e->{});
+              });
+            }
+            public static void saveToken(String token){
+              String uid=FirebaseAuth.getInstance().getUid();if(uid!=null&&token!=null&&!token.isEmpty())FirebaseFirestore.getInstance().collection("users").document(uid).update("fcmTokens",FieldValue.arrayUnion(token)).addOnFailureListener(e->{});
+            }
+          }
+          """)
+          service = src / "ChatMessagingService.java"
+          service.write_text("""package com.videocalllive.app;
+          import android.app.*;import android.content.*;import android.os.Build;import androidx.core.app.NotificationCompat;
+          import com.google.firebase.messaging.FirebaseMessagingService;import com.google.firebase.messaging.RemoteMessage;
+          public class ChatMessagingService extends FirebaseMessagingService {
+            @Override public void onNewToken(String token){NotificationSetup.saveToken(token);}
+            @Override public void onMessageReceived(RemoteMessage message){
+              String title=message.getNotification()!=null?message.getNotification().getTitle():message.getData().getOrDefault("title","New message");
+              String body=message.getNotification()!=null?message.getNotification().getBody():message.getData().getOrDefault("body","You received a message");
+              Intent open=new Intent(this,MessagesActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);
+              PendingIntent pi=PendingIntent.getActivity(this,5802,open,PendingIntent.FLAG_UPDATE_CURRENT|(Build.VERSION.SDK_INT>=23?PendingIntent.FLAG_IMMUTABLE:0));
+              Notification n=new NotificationCompat.Builder(this,"chat_messages").setSmallIcon(getApplicationInfo().icon).setContentTitle(title).setContentText(body).setStyle(new NotificationCompat.BigTextStyle().bigText(body)).setAutoCancel(true).setPriority(NotificationCompat.PRIORITY_HIGH).setContentIntent(pi).build();
+              NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);if(nm!=null)nm.notify((int)(System.currentTimeMillis()%Integer.MAX_VALUE),n);
+            }
+          }
+          """)
+          manifest = find("AndroidManifest.xml")
+          a = manifest.read_text()
+          if "android.permission.POST_NOTIFICATIONS" not in a:
+              a = a.replace('<application ', '<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n<application ', 1)
+          if "ChatMessagingService" not in a:
+              a = a.replace('</application>', '<service android:name=".ChatMessagingService" android:exported="false"><intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT"/></intent-filter></service>\n</application>',1)
+          manifest.write_text(a)
+
+          # Versioned diagnostics from the final Java source.
+          from zipfile import ZipFile, ZIP_DEFLATED
+          java_root = next(root.rglob("app/src/main/java"), None)
+          if not java_root: raise SystemExit("Java source root missing")
+          with ZipFile("/tmp/VideoCallLive-V58-Source-Diagnostics.zip","w",ZIP_DEFLATED) as z:
+            for p in java_root.rglob("*.java"): z.write(p,p.relative_to(java_root.parent.parent.parent))
+            z.write(gradle,"app/build.gradle")
+          print("V58 app-side unread counts, FCM token registration, and notification receiver patch applied.")
+          PY
+          # Rename the signed deliverables for this build version.
+          sed -i 's/VideoCallLive-V54/VideoCallLive-V58/g' .github/workflows/main.yml
+
       - name: Diagnose and install Android SDK API 36
         shell: bash
         run: |
