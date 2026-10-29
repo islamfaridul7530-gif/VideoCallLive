@@ -645,9 +645,9 @@ jobs:
           print("V53 version 53, compileSdk 36, targetSdk 36 confirmed.")
           print(f"Created source archive: {out}")
           PY
-          sed -i 's/VideoCallLive-V54-aligned.apk/VideoCallLive-V54-aligned.apk/g; s/VideoCallLive-V54.apk/VideoCallLive-V54.apk/g' .github/workflows/main.yml
+          sed -i 's/VideoCallLive-V58-aligned.apk/VideoCallLive-V58-aligned.apk/g; s/VideoCallLive-V58.apk/VideoCallLive-V58.apk/g' .github/workflows/main.yml
 
-      - name: Apply V54 privacy and account-deletion changes
+      - name: Apply V58 privacy and account-deletion changes
         shell: bash
         run: |
           set -euo pipefail
@@ -773,7 +773,7 @@ jobs:
           '''
           s = s[:a] + method + s[b:]
           p.write_text(s)
-          print("V54: in-app privacy link, account deletion UI, private creator-application reads/writes and backend-only coin balance added.")
+          print("V58: in-app privacy link, account deletion UI, private creator-application reads/writes and backend-only coin balance added.")
           PY
           python3 - <<'PY'
           from pathlib import Path
@@ -782,13 +782,13 @@ jobs:
           src = next(root.rglob("app/src/main/java"), None)
           gradle = next(root.rglob("app/build.gradle"), None)
           if not src or not gradle:
-              raise SystemExit("V54 diagnostic source tree not found")
-          out = Path("/tmp/VideoCallLive-V54-Source-Diagnostics.zip")
+              raise SystemExit("V58 diagnostic source tree not found")
+          out = Path("/tmp/VideoCallLive-V58-Source-Diagnostics.zip")
           with ZipFile(out, "w", ZIP_DEFLATED) as z:
               for p in src.rglob("*.java"):
                   z.write(p, p.relative_to(src.parent.parent.parent))
               z.write(gradle, "app/build.gradle")
-          print("Created V54 source diagnostics archive")
+          print("Created V58 source diagnostics archive")
           PY
       - name: Apply V55 Android notification permission and channel bootstrap
         shell: bash
@@ -812,7 +812,7 @@ jobs:
                   raise SystemExit("app/build.gradle not found")
               g = gradle.read_text()
           if 'versionCode 54' not in g or 'versionName "54.0-privacy-account-deletion"' not in g:
-              raise SystemExit("Expected V54 version markers not found")
+              raise SystemExit("Expected V58 version markers not found")
           gradle.write_text(g.replace('versionCode 54','versionCode 55',1).replace('versionName "54.0-privacy-account-deletion"','versionName "55.0-notification-permission-bootstrap"',1))
 
           manifest = find("AndroidManifest.xml")
@@ -982,10 +982,10 @@ jobs:
           # Keep artifact names/version labels aligned with V57.
           workflow = Path(".github/workflows/main.yml")
           w = workflow.read_text()
-          w = w.replace("VideoCallLive-V54.apk", "VideoCallLive-V57.apk")
-          w = w.replace("VideoCallLive-V54-aligned.apk", "VideoCallLive-V57-aligned.apk")
-          w = w.replace("VideoCallLive-V54-Play-Store-API36-AAB", "VideoCallLive-V57-Play-Store-API36-AAB")
-          w = w.replace("VideoCallLive-V54-Play-Store-AAB", "VideoCallLive-V57-Play-Store-AAB")
+          w = w.replace("VideoCallLive-V58.apk", "VideoCallLive-V57.apk")
+          w = w.replace("VideoCallLive-V58-aligned.apk", "VideoCallLive-V57-aligned.apk")
+          w = w.replace("VideoCallLive-V58-Play-Store-API36-AAB", "VideoCallLive-V57-Play-Store-API36-AAB")
+          w = w.replace("VideoCallLive-V58-Play-Store-AAB", "VideoCallLive-V57-Play-Store-AAB")
           workflow.write_text(w)
 
           from zipfile import ZipFile, ZIP_DEFLATED
@@ -1153,7 +1153,7 @@ jobs:
           print("V58 app-side unread counts, FCM token registration, and notification receiver patch applied.")
           PY
           # Rename the signed deliverables for this build version.
-          sed -i 's/VideoCallLive-V54/VideoCallLive-V58/g' .github/workflows/main.yml
+          sed -i 's/VideoCallLive-V58/VideoCallLive-V58/g' .github/workflows/main.yml
 
       - name: Diagnose and install Android SDK API 36
         shell: bash
@@ -1192,7 +1192,7 @@ jobs:
       - name: Upload Android SDK diagnostics
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V54-Android-SDK-Diagnostics
+          name: VideoCallLive-V58-Android-SDK-Diagnostics
           path: /tmp/android-sdk-diagnostics/sdkmanager.txt
           if-no-files-found: error
           retention-days: 7
@@ -1200,8 +1200,8 @@ jobs:
       - name: Upload source diagnostics for code review
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V54-Source-Diagnostics
-          path: /tmp/VideoCallLive-V54-Source-Diagnostics.zip
+          name: VideoCallLive-V58-Source-Diagnostics
+          path: /tmp/VideoCallLive-V58-Source-Diagnostics.zip
           if-no-files-found: error
           retention-days: 7
 
@@ -1252,8 +1252,8 @@ jobs:
           set -euo pipefail
           mkdir -p signed
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V54-aligned.apk
-          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V54.apk             signed/VideoCallLive-V54-aligned.apk
+          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V58-aligned.apk
+          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V58.apk             signed/VideoCallLive-V58-aligned.apk
 
       - name: Sign Android App Bundle
         if: github.event_name != 'pull_request'
@@ -1264,15 +1264,15 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          cp "$UNSIGNED_AAB" signed/VideoCallLive-V54.aab
-          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V54.aab "$KEY_ALIAS"
+          cp "$UNSIGNED_AAB" signed/VideoCallLive-V58.aab
+          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V58.aab "$KEY_ALIAS"
 
       - name: Verify signed Android App Bundle
         if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
-          jarsigner -verify -verbose signed/VideoCallLive-V54.aab > /tmp/aab-verify.txt 2>&1
+          jarsigner -verify -verbose signed/VideoCallLive-V58.aab > /tmp/aab-verify.txt 2>&1
           cat /tmp/aab-verify.txt | tail -30
           if ! grep -qi "jar verified" /tmp/aab-verify.txt; then
             echo "ERROR: jarsigner did not confirm the AAB signature"
@@ -1286,14 +1286,14 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V54.apk
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V58.apk
 
       - name: Upload signed APK
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V54-Play-Store-API36-AAB
-          path: signed/VideoCallLive-V54.apk
+          name: VideoCallLive-V58-Play-Store-API36-AAB
+          path: signed/VideoCallLive-V58.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -1301,7 +1301,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V54-Play-Store-AAB
-          path: signed/VideoCallLive-V54.aab
+          name: VideoCallLive-V58-Play-Store-AAB
+          path: signed/VideoCallLive-V58.aab
           if-no-files-found: error
           retention-days: 30
