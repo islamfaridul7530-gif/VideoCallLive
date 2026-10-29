@@ -798,3 +798,63 @@ exports.deleteMyAccount = onCall(
     return { success: true, deleted: true };
   }
 );
+
+
+// Push notifications for new one-to-one chat messages.
+// The Android app stores FCM registration tokens in users/{uid}.fcmTokens.
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+
+exports.chatMessageNotification = onDocumentCreated(
+  {
+    document: "chats/{chatId}/messages/{messageId}",
+    region: "asia-south1",
+  },
+  async (event) => {
+    const message = event.data?.data();
+    if (!message) return;
+    const receiverId = String(message.receiverId || "");
+    const senderId = String(message.senderId || "");
+    const body = String(message.text || "").trim();
+    if (!receiverId || !senderId || receiverId === senderId || !body) return;
+
+    const userRef = db.collection("users").doc(receiverId);
+    const userSnap = await userRef.get();
+    const rawTokens = userSnap.get("fcmTokens");
+    const tokens = Array.isArray(rawTokens)
+      ? [...new Set(rawTokens.filter((token) => typeof token === "string" && token.length > 20))]
+      : [];
+    if (!tokens.length) return;
+
+    const senderSnap = await db.collection("users").doc(senderId).get();
+    const senderName = String(senderSnap.get("displayName") || "New message").slice(0, 80);
+    const result = await admin.messaging().sendEachForMulticast({
+      tokens,
+      notification: {
+        title: senderName,
+        body: body.length > 180 ? body.slice(0, 177) + "..." : body,
+      },
+      data: {
+        type: "chat_message",
+        chatId: String(event.params.chatId),
+        senderId,
+        receiverId,
+      },
+      android: {
+        priority: "high",
+        notification: { channelId: "chat_messages", sound: "default" },
+      },
+    });
+
+    const invalid = [];
+    result.responses.forEach((response, index) => {
+      const code = response.error?.code || "";
+      if (code.includes("registration-token-not-registered") ||
+          code.includes("invalid-registration-token")) invalid.push(tokens[index]);
+    });
+    if (invalid.length) {
+      await userRef.update({
+        fcmTokens: admin.firestore.FieldValue.arrayRemove(...invalid),
+      });
+    }
+  }
+);
