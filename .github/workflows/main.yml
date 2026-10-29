@@ -1224,11 +1224,11 @@ jobs:
               idx = c.find(anchor)
               if idx < 0: raise SystemExit("ChatActivity onCreate not found")
               line_end = c.find("\n", idx)
-              c = c[:line_end+1] + "  getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);\n" + c[line_end+1:]
+              c = c[:line_end+1] + "  getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE | WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);\n" + c[line_end+1:]
               if "import android.view.WindowManager;" not in c:
                   c = c.replace("import android.view.*;", "import android.view.*;") if "import android.view.*;" in c else c.replace("import android.app.*;", "import android.app.*;import android.view.WindowManager;")
           old = 'addOnSuccessListener(z->{input.setText("");send.setEnabled(true);})'
-          new = 'addOnSuccessListener(z->{input.setText("");send.setEnabled(true);input.requestFocus();input.postDelayed(()->{InputMethodManager imm=(InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);if(imm!=null)imm.showSoftInput(input,InputMethodManager.SHOW_IMPLICIT);},120);})'
+          new = 'addOnSuccessListener(z->{input.setText("");send.setEnabled(true);input.requestFocus();input.postDelayed(()->{InputMethodManager imm=(InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);if(imm!=null){imm.showSoftInput(input,InputMethodManager.SHOW_FORCED);imm.restartInput(input);}},350);})'
           if old not in c:
               if "InputMethodManager imm=" not in c:
                   raise SystemExit("Message send success anchor not found; refusing unsafe V60 patch")
