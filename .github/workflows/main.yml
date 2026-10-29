@@ -933,6 +933,73 @@ jobs:
           print("V56 startup patch applied: saved-session restore no longer shows Sign out and Login.")
           print("Notification delivery and unread-count behavior still require separate code and device validation.")
           PY
+      - name: Apply V57 saved-session screen and login layout fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          def find(name):
+              p = next(root.rglob(name), None)
+              if p is None:
+                  raise SystemExit(name + " not found; refusing unsafe V57 patch")
+              return p
+
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if gradle is None:
+              raise SystemExit("app/build.gradle not found")
+          g = gradle.read_text()
+          if 'versionCode 56' not in g or 'versionName "56.0-saved-session-startup-notification-fix"' not in g:
+              raise SystemExit("Expected V56 version markers not found")
+          g = g.replace('versionCode 56', 'versionCode 57', 1)
+          g = g.replace('versionName "56.0-saved-session-startup-notification-fix"', 'versionName "57.0-saved-session-and-login-layout-fix"', 1)
+          gradle.write_text(g)
+
+          main = find("MainActivity.java")
+          s = main.read_text()
+          # The saved-session screen is transient; never show a sign-out button during normal startup.
+          import re
+          s, n = re.subn(r'\s*Button switchAccount = Ui\.secondary\(this, "Sign out and Login"\);.*?r\.addView\(switchAccount\);',
+                         '', s, count=1, flags=re.S)
+          # Older workflow revisions may already have removed the button declaration but left its addView.
+          s = s.replace('        r.addView(switchAccount);', '')
+          if 'Sign out and Login' in s:
+              raise SystemExit("Sign out and Login remains in MainActivity; refusing unsafe V57 patch")
+          # Place new-user login choices lower on the screen, keeping both choices together.
+          needle = '            Button q = Ui.button(this, "Quick Login");'
+          if needle not in s:
+              raise SystemExit("Quick Login layout anchor not found")
+          spacer = '''            Space loginSpacer = new Space(this);
+                      r.addView(loginSpacer, new LinearLayout.LayoutParams(1, 0, 0.9f));
+
+          '''
+          if 'Space loginSpacer' not in s:
+              s = s.replace(needle, spacer + needle, 1)
+          # Keep saved-account restore as a quiet spinner-only screen.
+          main.write_text(s)
+
+          # Keep artifact names/version labels aligned with V57.
+          workflow = Path(".github/workflows/main.yml")
+          w = workflow.read_text()
+          w = w.replace("VideoCallLive-V54.apk", "VideoCallLive-V57.apk")
+          w = w.replace("VideoCallLive-V54-aligned.apk", "VideoCallLive-V57-aligned.apk")
+          w = w.replace("VideoCallLive-V54-Play-Store-API36-AAB", "VideoCallLive-V57-Play-Store-API36-AAB")
+          w = w.replace("VideoCallLive-V54-Play-Store-AAB", "VideoCallLive-V57-Play-Store-AAB")
+          workflow.write_text(w)
+
+          from zipfile import ZipFile, ZIP_DEFLATED
+          src = next(root.rglob("app/src/main/java"), None)
+          if not src:
+              raise SystemExit("V57 Java source tree not found")
+          out = Path("/tmp/VideoCallLive-V57-Source-Diagnostics.zip")
+          with ZipFile(out, "w", ZIP_DEFLATED) as z:
+              for p in src.rglob("*.java"):
+                  z.write(p, p.relative_to(src.parent.parent.parent))
+              z.write(gradle, "app/build.gradle")
+          print("V57 saved-session screen and login-button vertical spacing patch applied.")
+          PY
+
       - name: Diagnose and install Android SDK API 36
         shell: bash
         run: |
