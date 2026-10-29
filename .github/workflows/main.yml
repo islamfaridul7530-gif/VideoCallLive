@@ -1206,6 +1206,47 @@ jobs:
           # Rename the signed deliverables for this build version.
           sed -i 's/VideoCallLive-V58/VideoCallLive-V58/g' .github/workflows/main.yml
 
+      - name: Apply V60 keep chat composer and keyboard open after sending
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          chat = next(root.rglob("ChatActivity.java"), None)
+          if chat is None:
+              raise SystemExit("ChatActivity.java not found; refusing unsafe V60 patch")
+          c = chat.read_text()
+          if "InputMethodManager" not in c:
+              c = c.replace("import android.content.*;", "import android.content.*;import android.view.inputmethod.InputMethodManager;")
+          if "SOFT_INPUT_ADJUST_RESIZE" not in c:
+              anchor = "super.onCreate("
+              idx = c.find(anchor)
+              if idx < 0: raise SystemExit("ChatActivity onCreate not found")
+              line_end = c.find("\n", idx)
+              c = c[:line_end+1] + "  getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);\n" + c[line_end+1:]
+              if "import android.view.WindowManager;" not in c:
+                  c = c.replace("import android.view.*;", "import android.view.*;") if "import android.view.*;" in c else c.replace("import android.app.*;", "import android.app.*;import android.view.WindowManager;")
+          old = 'addOnSuccessListener(z->{input.setText("");send.setEnabled(true);})'
+          new = 'addOnSuccessListener(z->{input.setText("");send.setEnabled(true);input.requestFocus();input.postDelayed(()->{InputMethodManager imm=(InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);if(imm!=null)imm.showSoftInput(input,InputMethodManager.SHOW_IMPLICIT);},120);})'
+          if old not in c:
+              if "InputMethodManager imm=" not in c:
+                  raise SystemExit("Message send success anchor not found; refusing unsafe V60 patch")
+          else:
+              c = c.replace(old,new,1)
+          # Keep the send control from taking focus away from the text field.
+          c = c.replace("send.setOnClickListener", "send.setFocusable(false);send.setFocusableInTouchMode(false);send.setOnClickListener", 1)
+          chat.write_text(c)
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if gradle is None: raise SystemExit("app/build.gradle not found")
+          g = gradle.read_text()
+          if 'versionCode 59' not in g or 'versionName "59.0-global-chat-unread-badge"' not in g:
+              raise SystemExit("Expected V59 version markers not found")
+          g = g.replace('versionCode 59','versionCode 60',1).replace('versionName "59.0-global-chat-unread-badge"','versionName "60.0-chat-keyboard-stays-open"',1)
+          gradle.write_text(g)
+          print("V60 chat composer refocuses after send and requests keyboard to remain open.")
+          PY
+
       - name: Diagnose and install Android SDK API 36
         shell: bash
         run: |
