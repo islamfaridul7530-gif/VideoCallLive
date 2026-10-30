@@ -1272,6 +1272,35 @@ jobs:
           print("V61 removed the global-layout composer translation; Android adjustResize now controls keyboard layout.")
           PY
 
+      - name: Apply V62 Android 15 chat keyboard resize fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          chat = next(root.rglob("ChatActivity.java"), None)
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if chat is None or gradle is None:
+              raise SystemExit("ChatActivity.java or app/build.gradle not found")
+          c = chat.read_text()
+          if "WindowCompat.setDecorFitsSystemWindows" not in c:
+              c = c.replace("import android.app.*;", "import android.app.*;import androidx.core.view.WindowCompat;", 1)
+              anchor = "getWindow().setSoftInputMode("
+              if anchor not in c:
+                  raise SystemExit("ChatActivity soft input configuration not found")
+              c = c.replace(anchor, "WindowCompat.setDecorFitsSystemWindows(getWindow(), true);getWindow().setSoftInputMode(", 1)
+          if "root.setFitsSystemWindows(true);" not in c:
+              c = c.replace("LinearLayout root=Ui.root(this);", "LinearLayout root=Ui.root(this);root.setFitsSystemWindows(true);", 1)
+          chat.write_text(c)
+          g = gradle.read_text()
+          if 'versionCode 61' not in g or 'versionName "61.0-chat-composer-position-fix"' not in g:
+              raise SystemExit("Expected V61 version markers not found")
+          g = g.replace('versionCode 61','versionCode 62',1).replace('versionName "61.0-chat-composer-position-fix"','versionName "62.0-chat-ime-resize-edge-to-edge-fix"',1)
+          gradle.write_text(g)
+          print("V62: opted ChatActivity out of forced edge-to-edge decor and enabled fit-system-windows with IME resize.")
+          PY
+
       - name: Diagnose and install Android SDK API 36
         shell: bash
         run: |
