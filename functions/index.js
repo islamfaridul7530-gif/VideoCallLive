@@ -478,6 +478,9 @@ exports.verifyCashfreePayment = onCall(
       }
 
       const userRef = db
+        .collection("privateUsers")
+        .doc(request.auth.uid);
+      const legacyUserRef = db
         .collection("users")
         .doc(request.auth.uid);
 
@@ -517,17 +520,21 @@ exports.verifyCashfreePayment = onCall(
             return;
           }
 
-          const userSnap =
-            await transaction.get(
-              userRef
-            );
-
-          const currentCoins =
-            Number(
-              userSnap.exists
-                ? userSnap.data().coins || 0
-                : 0
-            );
+          // Read both balance locations before writing. If this account has not
+          // yet been migrated, seed the private balance from its legacy balance
+          // exactly once as part of the same transaction that credits the purchase.
+          const userSnap = await transaction.get(userRef);
+          const legacyUserSnap = await transaction.get(legacyUserRef);
+          const privateData = userSnap.exists ? userSnap.data() : {};
+          const legacyData = legacyUserSnap.exists ? legacyUserSnap.data() : {};
+          const hasPrivateCoins = typeof privateData.coins === "number";
+          const legacyCoins = Math.max(
+            Number(legacyData.coins || 0),
+            Number(legacyData.coinBalance || 0)
+          );
+          const currentCoins = hasPrivateCoins
+            ? privateData.coins
+            : legacyCoins;
 
           const coinsToAdd =
             Number(
@@ -544,7 +551,10 @@ exports.verifyCashfreePayment = onCall(
 
             {
               coins: newCoins,
-
+              ...(hasPrivateCoins ? {} : {
+                migratedAt: admin.firestore.FieldValue.serverTimestamp(),
+                legacyCoinsMigrated: true,
+              }),
               updatedAt:
                 admin.firestore.FieldValue
                   .serverTimestamp(),
@@ -632,17 +642,23 @@ exports.getCoinBalance = onCall(
       );
     }
 
-    const snap = await db
-      .collection("users")
-      .doc(request.auth.uid)
-      .get();
+    const uid = request.auth.uid;
+    const privateSnap = await db.collection("privateUsers").doc(uid).get();
+    const privateData = privateSnap.exists ? privateSnap.data() : {};
 
+    // During the staged rollout, some accounts may still have their balance
+    // only in the legacy public document. Prefer a real private balance, but
+    // fall back to legacy data when no numeric private balance exists.
+    if (typeof privateData.coins === "number") {
+      return { coins: privateData.coins };
+    }
+
+    const legacySnap = await db.collection("users").doc(uid).get();
+    const legacyData = legacySnap.exists ? legacySnap.data() : {};
     return {
-
-      coins: Number(
-        snap.exists
-          ? snap.data().coins || 0
-          : 0
+      coins: Math.max(
+        Number(legacyData.coins || 0),
+        Number(legacyData.coinBalance || 0)
       ),
     };
   }
@@ -685,5 +701,160 @@ exports.bootstrapAdmin = onCall(
       admin: true,
       uid: OWNER_ADMIN_UID,
     };
+  }
+);
+
+
+/*
+ * Delete the authenticated user's app account and associated app-side data.
+ * This operation is intentionally irreversible and requires an explicit confirmation.
+ */
+async function deleteDocumentsForQuery(query) {
+  const snapshot = await query.get();
+  for (const document of snapshot.docs) {
+    await db.recursiveDelete(document.ref);
+  }
+}
+
+async function deleteStoragePrefix(prefix) {
+  try {
+    await admin.storage().bucket().deleteFiles({ prefix });
+  } catch (error) {
+    if (Number(error.code) === 404) return;
+    console.error("Account deletion storage cleanup failed for prefix " + prefix, error);
+    throw new HttpsError("internal", "Stored photos could not be deleted. Please retry.");
+  }
+}
+
+exports.deleteMyAccount = onCall(
+  { region: "asia-south1", timeoutSeconds: 540, memory: "1GiB" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Please sign in before deleting your account.");
+    }
+    if (request.data?.confirmation !== "DELETE") {
+      throw new HttpsError("failed-precondition", "Explicit deletion confirmation is required.");
+    }
+
+    const uid = request.auth.uid;
+    const provider = request.auth.token?.firebase?.sign_in_provider || "unknown";
+    const authTime = Number(request.auth.token?.auth_time || 0);
+    if (provider !== "anonymous" && (!authTime || Date.now() / 1000 - authTime > 15 * 60)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "For account safety, sign out and sign back in before deleting this account."
+      );
+    }
+
+    // Delete stored user media first. If storage cleanup fails, keep the Auth account
+    // so the owner can retry rather than reporting a false success.
+    await deleteStoragePrefix("profilePhotos/" + uid + "/");
+    await deleteStoragePrefix("creatorApplications/" + uid + "/");
+
+    // Delete both current participant-indexed chats and legacy deterministic room
+    // IDs from before the participants field was added. Account deletion is rare;
+    // this bounded-purpose scan avoids leaving old messages under an orphaned room.
+    const allChats = await db.collection("chats").get();
+    const chatRefs = new Map();
+    for (const chat of allChats.docs) {
+      const participants = chat.get("participants");
+      const idMatches = chat.id.startsWith(uid + "_") || chat.id.endsWith("_" + uid);
+      if ((Array.isArray(participants) && participants.includes(uid)) || idMatches) {
+        chatRefs.set(chat.ref.path, chat.ref);
+      }
+    }
+    for (const ref of chatRefs.values()) await db.recursiveDelete(ref);
+
+    const callQueries = await Promise.all([
+      db.collection("calls").where("callerId", "==", uid).get(),
+      db.collection("calls").where("receiverId", "==", uid).get(),
+    ]);
+    const callRefs = new Map();
+    for (const snapshot of callQueries) {
+      for (const document of snapshot.docs) callRefs.set(document.ref.path, document.ref);
+    }
+    for (const ref of callRefs.values()) await db.recursiveDelete(ref);
+
+    await deleteDocumentsForQuery(
+      db.collection("supportTickets").where("uid", "==", uid)
+    );
+    await deleteDocumentsForQuery(
+      db.collection("paymentOrders").where("uid", "==", uid)
+    );
+
+    await db.recursiveDelete(db.collection("creatorApplications").doc(uid));
+    await db.recursiveDelete(db.collection("privateUsers").doc(uid));
+    await db.recursiveDelete(db.collection("users").doc(uid));
+
+    try {
+      await admin.auth().deleteUser(uid);
+    } catch (error) {
+      if (error.code !== "auth/user-not-found") {
+        console.error("Account deletion Auth cleanup failed for UID " + uid, error);
+        throw new HttpsError("internal", "App data was removed, but account closure did not finish. Please contact support.");
+      }
+    }
+
+    return { success: true, deleted: true };
+  }
+);
+
+
+// Push notifications for new one-to-one chat messages.
+// The Android app stores FCM registration tokens in users/{uid}.fcmTokens.
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+
+exports.chatMessageNotification = onDocumentCreated(
+  {
+    document: "chats/{chatId}/messages/{messageId}",
+    region: "asia-south1",
+  },
+  async (event) => {
+    const message = event.data?.data();
+    if (!message) return;
+    const receiverId = String(message.receiverId || "");
+    const senderId = String(message.senderId || "");
+    const body = String(message.text || "").trim();
+    if (!receiverId || !senderId || receiverId === senderId || !body) return;
+
+    const userRef = db.collection("users").doc(receiverId);
+    const userSnap = await userRef.get();
+    const rawTokens = userSnap.get("fcmTokens");
+    const tokens = Array.isArray(rawTokens)
+      ? [...new Set(rawTokens.filter((token) => typeof token === "string" && token.length > 20))]
+      : [];
+    if (!tokens.length) return;
+
+    const senderSnap = await db.collection("users").doc(senderId).get();
+    const senderName = String(senderSnap.get("displayName") || "New message").slice(0, 80);
+    const result = await admin.messaging().sendEachForMulticast({
+      tokens,
+      notification: {
+        title: senderName,
+        body: body.length > 180 ? body.slice(0, 177) + "..." : body,
+      },
+      data: {
+        type: "chat_message",
+        chatId: String(event.params.chatId),
+        senderId,
+        receiverId,
+      },
+      android: {
+        priority: "high",
+        notification: { channelId: "chat_messages", sound: "default" },
+      },
+    });
+
+    const invalid = [];
+    result.responses.forEach((response, index) => {
+      const code = response.error?.code || "";
+      if (code.includes("registration-token-not-registered") ||
+          code.includes("invalid-registration-token")) invalid.push(tokens[index]);
+    });
+    if (invalid.length) {
+      await userRef.update({
+        fcmTokens: admin.firestore.FieldValue.arrayRemove(...invalid),
+      });
+    }
   }
 );

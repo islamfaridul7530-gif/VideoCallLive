@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+      - privacy-account-deletion
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -641,7 +645,722 @@ jobs:
           print("V53 version 53, compileSdk 36, targetSdk 36 confirmed.")
           print(f"Created source archive: {out}")
           PY
-          sed -i 's/VideoCallLive-V53-aligned.apk/VideoCallLive-V53-aligned.apk/g; s/VideoCallLive-V53.apk/VideoCallLive-V53.apk/g' .github/workflows/main.yml
+          sed -i 's/VideoCallLive-V64-aligned.apk/VideoCallLive-V64-aligned.apk/g; s/VideoCallLive-V64.apk/VideoCallLive-V64.apk/g' .github/workflows/main.yml
+
+      - name: Apply V58 privacy and account-deletion changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -f v45_patch/app/src/main/java/com/videocalllive/app/AccountDeletionActivity.java "$PROJECT_DIR/app/src/main/java/com/videocalllive/app/AccountDeletionActivity.java"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("extracted")
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if gradle is None:
+              raise SystemExit("app/build.gradle not found")
+          g = gradle.read_text()
+          if 'versionCode 53' not in g or 'versionName "53.0-play-store-api36-aab"' not in g:
+              raise SystemExit("Expected V53 version markers not found")
+          g = g.replace('versionCode 53', 'versionCode 54', 1)
+          g = g.replace('versionName "53.0-play-store-api36-aab"', 'versionName "54.0-privacy-account-deletion"', 1)
+          gradle.write_text(g)
+
+          def find(name):
+              p = next(root.rglob(name), None)
+              if p is None:
+                  raise SystemExit(name + " not found; refusing unsafe privacy patch")
+              return p
+
+          # Add visible policy and deletion entry points without changing the existing home design.
+          p = find("MyProfileActivity.java")
+          s = p.read_text()
+          old = 'String[] opts={"▣ My Photos","♡ Following","🔔 Notifications","🛡 Privacy & Safety","🚫 Blocked Users","? Help & Support","⚙ Settings"};'
+          new = 'String[] opts={"▣ My Photos","♡ Following","🔔 Notifications","🛡 Privacy & Safety","🚫 Blocked Users","? Help & Support","⚙ Settings","🔒 Privacy Policy","🗑 Delete Account"};'
+          if old not in s:
+              raise SystemExit("MyProfile options did not match expected V53 source")
+          s = s.replace(old, new, 1)
+          old = 'v->{if(raw.contains("My Photos"))startActivity(new Intent(this,PhotoManagerActivity.class));else if(raw.contains("Help & Support"))startActivity(new Intent(this,SupportActivity.class));else{String type=raw.replace("♡ ","").replace("🔔 ","").replace("🛡 ","").replace("🚫 ","").replace("? ","").replace("⚙ ","");startActivity(new Intent(this,SimpleProfileOptionActivity.class).putExtra("type",type));}});'
+          new = 'v->{if(raw.contains("My Photos"))startActivity(new Intent(this,PhotoManagerActivity.class));else if(raw.contains("Help & Support"))startActivity(new Intent(this,SupportActivity.class));else if(raw.contains("Privacy Policy")){try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/islamfaridul7530-gif/VideoCallLive/blob/main/docs/PRIVACY-POLICY.md")));}catch(Exception e){Ui.toast(this,"Could not open Privacy Policy");}}else if(raw.contains("Delete Account"))startActivity(new Intent(this,AccountDeletionActivity.class));else{String type=raw.replace("♡ ","").replace("🔔 ","").replace("🛡 ","").replace("🚫 ","").replace("? ","").replace("⚙ ","");startActivity(new Intent(this,SimpleProfileOptionActivity.class).putExtra("type",type));}});'
+          if old not in s:
+              raise SystemExit("MyProfile click handler did not match expected V53 source")
+          p.write_text(s.replace(old, new, 1))
+
+          # Move creator-application reads/writes out of the public user profile document.
+          p = find("CreatorApplicationActivity.java")
+          s = p.read_text()
+          old = 'db.collection("users").document(uid).get()'
+          if old not in s:
+              raise SystemExit("CreatorApplicationActivity account lookup was not found")
+          s = s.replace(old, 'db.collection("creatorApplications").document(uid).get()', 1)
+          old = 'String oldName=doc.getString("creatorName");if(oldName==null)oldName=doc.getString("displayName");if(oldName!=null)nameInput.setText(oldName);'
+          new = 'String oldName=doc.getString("creatorName");if(oldName==null)oldName=prefs.getString("profile_name","");if(oldName!=null)nameInput.setText(oldName);'
+          if old not in s:
+              raise SystemExit("Creator application name-prefill block did not match")
+          s = s.replace(old, new, 1)
+          old = 'String oldCountry=doc.getString("country");if(oldCountry!=null&&!"null".equals(oldCountry))countryInput.setText(oldCountry);'
+          new = 'String oldCountry=doc.getString("country");if(oldCountry==null)oldCountry=prefs.getString("profile_country","");if(oldCountry!=null&&!"null".equals(oldCountry))countryInput.setText(oldCountry);'
+          if old not in s:
+              raise SystemExit("Creator application country-prefill block did not match")
+          s = s.replace(old, new, 1)
+          old = 'db.collection("users").document(uid).set(data,SetOptions.merge()).addOnSuccessListener(v->{prefs.edit().putString("creator_status","pending").apply();Ui.toast(this,"Selfie uploaded and application submitted");recreate();}).addOnFailureListener(e->{submit.setEnabled(true);submit.setText("Verify Face & Submit Application");Ui.toast(this,"Application save failed. Please retry.");});'
+          new = 'db.collection("creatorApplications").document(uid).set(data,SetOptions.merge()).addOnSuccessListener(v->{prefs.edit().putString("creator_status","pending").apply();Ui.toast(this,"Selfie uploaded and application submitted");recreate();}).addOnFailureListener(e->{submit.setEnabled(true);submit.setText("Verify Face & Submit Application");Ui.toast(this,"Application save failed. Please retry.");});'
+          if old not in s:
+              raise SystemExit("Creator application write block did not match")
+          p.write_text(s.replace(old, new, 1))
+
+          # Restore the private creator-application status into local UI state after login.
+          # The status is no longer stored on the broadly readable public profile document.
+          p = find("FirebaseHelper.java")
+          s = p.read_text()
+          old = 'e.apply();a.startActivity(new android.content.Intent(a,HomeActivity.class));'
+          new = 'e.apply();FirebaseFirestore.getInstance().collection("creatorApplications").document(uid).get().addOnSuccessListener(app->{String st=app.getString("creatorApplicationStatus");if(st==null||st.trim().isEmpty())st=app.getString("creatorStatus");android.content.SharedPreferences.Editor ce=a.getSharedPreferences("vcl",0).edit();if(st==null||st.trim().isEmpty())ce.remove("creator_status");else ce.putString("creator_status",st);ce.apply();});a.startActivity(new android.content.Intent(a,HomeActivity.class));'
+          if old not in s:
+              raise SystemExit("FirebaseHelper HomeActivity restore point did not match")
+          p.write_text(s.replace(old, new, 1))
+
+          # Keep submitted selfie and application details visible only to the applicant/admin.
+          p = find("AdminReviewActivity.java")
+          s = p.read_text()
+          old = 'db.collection("users").whereEqualTo("creatorApplicationStatus","pending").get()'
+          new = 'db.collection("creatorApplications").whereEqualTo("creatorApplicationStatus","pending").get()'
+          if old not in s:
+              raise SystemExit("Admin review query did not match")
+          s = s.replace(old, new, 1)
+          old = 'db.collection("users").document(uid).set(m,SetOptions.merge()).addOnSuccessListener(v->{Ui.toast(this,"Application "+status);load();}).addOnFailureListener(e->Ui.toast(this,"Update failed ("+"): "+e.getMessage()));'
+          new = 'db.collection("creatorApplications").document(uid).set(m,SetOptions.merge()).addOnSuccessListener(v->{Ui.toast(this,"Application "+status);load();}).addOnFailureListener(e->Ui.toast(this,"Update failed: "+e.getMessage()));'
+          if old not in s:
+              raise SystemExit("Admin review status update did not match")
+          p.write_text(s.replace(old, new, 1))
+
+          # Coin balances are fetched through the authenticated backend, never from public user docs.
+          p = find("HomeActivity.java")
+          s = p.read_text()
+          old = 'if(balance!=null){Long coins=d.getLong("coinBalance");balance.setText("🪙 "+(coins==null?"--":coins)+"  +");}'
+          if old not in s:
+              raise SystemExit("HomeActivity public coin-balance read was not found")
+          s = s.replace(old, '', 1)
+          marker = 'protected void onResume(){super.onResume();ProfilePhotoSync.ensure(this);if(me!=null){'
+          if marker not in s:
+              raise SystemExit("HomeActivity onResume insertion point missing")
+          s = s.replace(marker, 'void loadBalance(){if(balance==null||me==null)return;com.google.firebase.functions.FirebaseFunctions.getInstance("asia-south1").getHttpsCallable("getCoinBalance").call().addOnSuccessListener(result->{Object raw=result.getData();long coins=0;if(raw instanceof Map){Object value=((Map<?,?>)raw).get("coins");if(value instanceof Number)coins=((Number)value).longValue();}if(balance!=null)balance.setText("🪙 "+coins+"  +");}).addOnFailureListener(e->{if(balance!=null)balance.setText("🪙 --  +");});} protected void onResume(){super.onResume();ProfilePhotoSync.ensure(this);if(me!=null){loadBalance();', 1)
+          p.write_text(s)
+
+          p = find("TopUpActivity.java")
+          s = p.read_text()
+          a = s.find('    private void loadBalance() {')
+          b = s.find('    private void startPayment(String packId) {', a)
+          if a < 0 or b < 0:
+              raise SystemExit("TopUpActivity loadBalance method boundaries not found")
+          method = '''    private void loadBalance() {
+          if (FirebaseAuth.getInstance().getUid() == null) {
+              balance.setText("🪙 0 Coins");
+              return;
+          }
+          functions.getHttpsCallable("getCoinBalance").call()
+              .addOnSuccessListener(result -> {
+                  Object raw = result.getData();
+                  long coins = 0;
+                  if (raw instanceof Map) {
+                      Object value = ((Map<?,?>) raw).get("coins");
+                      if (value instanceof Number) coins = ((Number) value).longValue();
+                  }
+                  balance.setText("🪙 " + coins + " Coins");
+              })
+              .addOnFailureListener(e -> balance.setText("🪙 Balance unavailable"));
+                }
+
+          '''
+          s = s[:a] + method + s[b:]
+          p.write_text(s)
+          print("V58: in-app privacy link, account deletion UI, private creator-application reads/writes and backend-only coin balance added.")
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          root = Path("extracted")
+          src = next(root.rglob("app/src/main/java"), None)
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if not src or not gradle:
+              raise SystemExit("V58 diagnostic source tree not found")
+          out = Path("/tmp/VideoCallLive-V64-Source-Diagnostics.zip")
+          with ZipFile(out, "w", ZIP_DEFLATED) as z:
+              for p in src.rglob("*.java"):
+                  z.write(p, p.relative_to(src.parent.parent.parent))
+              z.write(gradle, "app/build.gradle")
+          print("Created V58 source diagnostics archive")
+          PY
+      - name: Apply V55 Android notification permission and channel bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          def find(name):
+              p = next(root.rglob(name), None)
+              if p is None:
+                  raise SystemExit(name + " not found; refusing unsafe V55 patch")
+              return p
+
+          gradle = find("build.gradle")
+          g = gradle.read_text()
+          if 'versionCode 54' not in g or 'versionName "54.0-privacy-account-deletion"' not in g:
+              # The app module build.gradle may be the only matching file.
+              gradle = next(root.rglob("app/build.gradle"), None)
+              if gradle is None:
+                  raise SystemExit("app/build.gradle not found")
+              g = gradle.read_text()
+          if 'versionCode 54' not in g or 'versionName "54.0-privacy-account-deletion"' not in g:
+              raise SystemExit("Expected V58 version markers not found")
+          gradle.write_text(g.replace('versionCode 54','versionCode 55',1).replace('versionName "54.0-privacy-account-deletion"','versionName "55.0-notification-permission-bootstrap"',1))
+
+          manifest = find("AndroidManifest.xml")
+          s = manifest.read_text()
+          if 'android.permission.POST_NOTIFICATIONS' not in s:
+              needle = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
+              if needle not in s:
+                  raise SystemExit("AndroidManifest opening tag did not match")
+              s = s.replace(needle, needle + '\n<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>', 1)
+              manifest.write_text(s)
+
+          main = find("MainActivity.java")
+          s = main.read_text()
+          if 'ensureMessageNotificationChannel();' not in s:
+              import re
+              match = re.search(r'(?m)^([ \t]*)super\.onCreate\([^;\n]*\);', s)
+              if not match:
+                  raise SystemExit("MainActivity onCreate super-call not found; refusing unsafe V55 patch")
+              indent = match.group(1)
+              insertion = '\n' + indent + 'ensureMessageNotificationChannel();\n' + indent + 'requestNotificationPermissionIfNeeded();'
+              s = s[:match.end()] + insertion + s[match.end():]
+          if 'private void ensureMessageNotificationChannel()' not in s:
+              marker = '    private void saveAndShow(Throwable e) {'
+              if marker not in s:
+                  raise SystemExit("MainActivity method insertion point missing")
+              methods = '''
+              private void ensureMessageNotificationChannel() {
+                  if (android.os.Build.VERSION.SDK_INT >= 26) {
+                      android.app.NotificationManager manager = getSystemService(android.app.NotificationManager.class);
+                      if (manager != null && manager.getNotificationChannel("messages") == null) {
+                          android.app.NotificationChannel channel = new android.app.NotificationChannel(
+                              "messages", "Messages", android.app.NotificationManager.IMPORTANCE_DEFAULT);
+                          channel.setDescription("New VideoCallLive chat messages");
+                          manager.createNotificationChannel(channel);
+                      }
+                  }
+              }
+
+              private void requestNotificationPermissionIfNeeded() {
+                  if (android.os.Build.VERSION.SDK_INT >= 33 &&
+                      checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                      requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 5501);
+                  }
+              }
+
+          '''
+              s = s.replace(marker, methods + marker, 1)
+          main.write_text(s)
+          print("V55: Android notification permission declared, Messages channel created, and runtime permission requested.")
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          root = Path("extracted")
+          src = next(root.rglob("app/src/main/java"), None)
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if not src or not gradle:
+              raise SystemExit("V55 source tree not found")
+          out = Path("/tmp/VideoCallLive-V55-Source-Diagnostics.zip")
+          with ZipFile(out, "w", ZIP_DEFLATED) as z:
+              for p in src.rglob("*.java"):
+                  z.write(p, p.relative_to(src.parent.parent.parent))
+              z.write(gradle, "app/build.gradle")
+          print(f"Created source archive: {out}")
+          PY
+      - name: Apply V56 saved-session startup and notification diagnostics fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          def find(name):
+              p = next(root.rglob(name), None)
+              if p is None:
+                  raise SystemExit(name + " not found; refusing unsafe V56 patch")
+              return p
+
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if gradle is None:
+              raise SystemExit("app/build.gradle not found")
+          g = gradle.read_text()
+          if 'versionCode 55' not in g or 'versionName "55.0-notification-permission-bootstrap"' not in g:
+              raise SystemExit("Expected V55 version markers not found")
+          g = g.replace('versionCode 55', 'versionCode 56', 1)
+          g = g.replace('versionName "55.0-notification-permission-bootstrap"', 'versionName "56.0-saved-session-startup-notification-fix"', 1)
+          gradle.write_text(g)
+
+          # Keep the existing account restore flow, but never expose a Sign out and Login
+          # control during ordinary app startup for an already-authenticated user.
+          main = find("MainActivity.java")
+          s = main.read_text()
+          block = '''        Button switchAccount = Ui.secondary(this, "Sign out and Login");
+                  switchAccount.setOnClickListener(v -> {
+                      FirebaseAuth.getInstance().signOut();
+                      getSharedPreferences("vcl", 0).edit().remove("account_uid").remove("gender").remove("profile_name").remove("profile_country").remove("profile_bio").remove("profile_age").remove("profile_complete_local").apply();
+                      startActivity(new Intent(this, MainActivity.class));
+                      finish();
+                  });'''
+          if block not in s:
+              raise SystemExit("Expected saved-session switch-account block not found; refusing unsafe V56 patch")
+          s = s.replace(block, "", 1)
+          if 'r.addView(switchAccount);' not in s:
+              raise SystemExit("Expected switch-account view insertion not found")
+          s = s.replace('        r.addView(switchAccount);', '', 1)
+          main.write_text(s)
+
+          # Keep diagnostic source archive aligned with the final V56 source.
+          from zipfile import ZipFile, ZIP_DEFLATED
+          src = next(root.rglob("app/src/main/java"), None)
+          if not src:
+              raise SystemExit("V56 Java source tree not found")
+          out = Path("/tmp/VideoCallLive-V56-Source-Diagnostics.zip")
+          with ZipFile(out, "w", ZIP_DEFLATED) as z:
+              for p in src.rglob("*.java"):
+                  z.write(p, p.relative_to(src.parent.parent.parent))
+              z.write(gradle, "app/build.gradle")
+          print("V56 startup patch applied: saved-session restore no longer shows Sign out and Login.")
+          print("Notification delivery and unread-count behavior still require separate code and device validation.")
+          PY
+      - name: Apply V57 saved-session screen and login layout fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          def find(name):
+              p = next(root.rglob(name), None)
+              if p is None:
+                  raise SystemExit(name + " not found; refusing unsafe V57 patch")
+              return p
+
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if gradle is None:
+              raise SystemExit("app/build.gradle not found")
+          g = gradle.read_text()
+          if 'versionCode 56' not in g or 'versionName "56.0-saved-session-startup-notification-fix"' not in g:
+              raise SystemExit("Expected V56 version markers not found")
+          g = g.replace('versionCode 56', 'versionCode 57', 1)
+          g = g.replace('versionName "56.0-saved-session-startup-notification-fix"', 'versionName "57.0-saved-session-and-login-layout-fix"', 1)
+          gradle.write_text(g)
+
+          main = find("MainActivity.java")
+          s = main.read_text()
+          # The saved-session screen is transient; never show a sign-out button during normal startup.
+          import re
+          s, n = re.subn(r'\s*Button switchAccount = Ui\.secondary\(this, "Sign out and Login"\);.*?r\.addView\(switchAccount\);',
+                         '', s, count=1, flags=re.S)
+          # Older workflow revisions may already have removed the button declaration but left its addView.
+          s = s.replace('        r.addView(switchAccount);', '')
+          if 'Sign out and Login' in s:
+              raise SystemExit("Sign out and Login remains in MainActivity; refusing unsafe V57 patch")
+          # Place new-user login choices lower on the screen, keeping both choices together.
+          needle = '            Button q = Ui.button(this, "Quick Login");'
+          if needle not in s:
+              raise SystemExit("Quick Login layout anchor not found")
+          spacer = '''            Space loginSpacer = new Space(this);
+                      r.addView(loginSpacer, new LinearLayout.LayoutParams(1, 0, 0.9f));
+
+          '''
+          if 'Space loginSpacer' not in s:
+              s = s.replace(needle, spacer + needle, 1)
+          # Keep saved-account restore as a quiet spinner-only screen.
+          main.write_text(s)
+
+          # Keep artifact names/version labels aligned with V57.
+          workflow = Path(".github/workflows/main.yml")
+          w = workflow.read_text()
+          w = w.replace("VideoCallLive-V64.apk", "VideoCallLive-V57.apk")
+          w = w.replace("VideoCallLive-V64-aligned.apk", "VideoCallLive-V57-aligned.apk")
+          w = w.replace("VideoCallLive-V64-Play-Store-API36-AAB", "VideoCallLive-V57-Play-Store-API36-AAB")
+          w = w.replace("VideoCallLive-V64-Play-Store-AAB", "VideoCallLive-V57-Play-Store-AAB")
+          workflow.write_text(w)
+
+          from zipfile import ZipFile, ZIP_DEFLATED
+          src = next(root.rglob("app/src/main/java"), None)
+          if not src:
+              raise SystemExit("V57 Java source tree not found")
+          out = Path("/tmp/VideoCallLive-V57-Source-Diagnostics.zip")
+          with ZipFile(out, "w", ZIP_DEFLATED) as z:
+              for p in src.rglob("*.java"):
+                  z.write(p, p.relative_to(src.parent.parent.parent))
+              z.write(gradle, "app/build.gradle")
+          print("V57 saved-session screen and login-button vertical spacing patch applied.")
+          PY
+
+      - name: Apply V58 chat unread-count and push-notification fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          def find(name):
+              p = next(root.rglob(name), None)
+              if p is None: raise SystemExit(name + " not found; refusing unsafe V58 patch")
+              return p
+
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if not gradle: raise SystemExit("app/build.gradle not found")
+          g = gradle.read_text()
+          if 'versionCode 57' not in g or 'versionName "57.0-saved-session-and-login-layout-fix"' not in g:
+              raise SystemExit("Expected V57 version markers not found")
+          g = g.replace('versionCode 57', 'versionCode 58', 1)
+          g = g.replace('versionName "57.0-saved-session-and-login-layout-fix"', 'versionName "58.0-chat-notifications-unread-count"', 1)
+          if "firebase-messaging" not in g:
+              g = g.replace("implementation 'com.google.firebase:firebase-functions'", "implementation 'com.google.firebase:firebase-functions'\n implementation 'com.google.firebase:firebase-messaging'")
+          gradle.write_text(g)
+
+          chat = find("ChatActivity.java")
+          c = chat.read_text()
+          # Reset the current user's unread count once the chat document is available/opened.
+          anchor = 'reg=db.collection("chats").document(room).collection("messages")'
+          if anchor not in c: raise SystemExit("Chat message listener anchor not found")
+          if 'unreadCounts.' not in c:
+              c = c.replace(anchor, 'db.collection("chats").document(room).update("unreadCounts."+me, 0L);\n    '+anchor, 1)
+          # Atomically increment the receiver's unread count after the message write succeeds.
+          start = c.find(' void send(){')
+          end = c.find(' protected void onDestroy()', start)
+          if start < 0 or end < 0: raise SystemExit("Chat send method boundaries not found")
+          send_method = ''' void send(){
+            String body=input.getText().toString().trim();
+            if(body.isEmpty())return;
+            send.setEnabled(false);
+            Map<String,Object> m=new HashMap<>();
+            m.put("senderId",me);m.put("receiverId",other);m.put("text",body);m.put("createdAt",System.currentTimeMillis());
+            DocumentReference chatRef=db.collection("chats").document(room);
+            chatRef.collection("messages").add(m)
+              .addOnSuccessListener(messageRef->{
+                Map<String,Object> update=new HashMap<>();
+                update.put("participants",Arrays.asList(me,other));
+                update.put("lastText",body);
+                update.put("updatedAt",System.currentTimeMillis());
+                chatRef.set(update,SetOptions.merge())
+                  .addOnSuccessListener(v->chatRef.update("unreadCounts."+other,FieldValue.increment(1))
+                    .addOnSuccessListener(z->{input.setText("");send.setEnabled(true);})
+                    .addOnFailureListener(e->{send.setEnabled(true);Ui.toast(this,"Message sent, but unread count update failed: "+e.getMessage());}))
+                  .addOnFailureListener(e->{send.setEnabled(true);Ui.toast(this,"Message sent, but chat summary update failed: "+e.getMessage());});
+              })
+              .addOnFailureListener(e->{send.setEnabled(true);Ui.toast(this,"Message failed: "+e.getMessage());});
+          }
+          '''
+          c = c[:start] + send_method + c[end:]
+          chat.write_text(c)
+
+          messages = find("MessagesActivity.java")
+          m = messages.read_text()
+          # Display a visible unread badge beside the latest message preview.
+          old = 'TextView st=new TextView(this);st.setText("○ Offline");'
+          new = '''TextView unread=new TextView(this);
+          Object countsObj=d.get("unreadCounts");
+          long unreadCount=0;
+          if(countsObj instanceof Map){Object count=((Map<?,?>)countsObj).get(uid);if(count instanceof Number)unreadCount=((Number)count).longValue();}
+          unread.setText(unreadCount>0?(unreadCount>99?"99+":String.valueOf(unreadCount)):"");
+          unread.setTextColor(Color.WHITE);unread.setTextSize(13);unread.setGravity(Gravity.CENTER);
+          unread.setPadding(Ui.dp(this,8),Ui.dp(this,3),Ui.dp(this,8),Ui.dp(this,3));
+          unread.setBackground(Ui.bg(Ui.PINK,Ui.dp(this,18)));
+          if(unreadCount==0)unread.setVisibility(View.GONE);
+          card.addView(unread,new LinearLayout.LayoutParams(-2,Ui.dp(this,28)));
+          TextView st=new TextView(this);st.setText("○ Offline");'''
+          if old not in m: raise SystemExit("MessagesActivity unread badge insertion anchor not found")
+          m = m.replace(old,new,1)
+          oldclick = 'card.setOnClickListener(v->startActivity(new Intent(this,ChatActivity.class).putExtra("otherUid",id).putExtra("name",nm.getText().toString())));'
+          newclick = 'card.setOnClickListener(v->{db.collection("chats").document(d.getId()).update("unreadCounts."+uid,0L);startActivity(new Intent(this,ChatActivity.class).putExtra("otherUid",id).putExtra("name",nm.getText().toString()));});'
+          if oldclick not in m: raise SystemExit("Chat row click anchor not found")
+          m = m.replace(oldclick,newclick,1)
+          messages.write_text(m)
+
+          home = find("HomeActivity.java")
+          h = home.read_text()
+          if "NotificationSetup.ensure(this)" not in h:
+              if "void onResume(){super.onResume();ProfilePhotoSync.ensure(this);" not in h:
+                  raise SystemExit("HomeActivity onResume anchor not found")
+              h = h.replace("void onResume(){super.onResume();ProfilePhotoSync.ensure(this);", "void onResume(){super.onResume();NotificationSetup.ensure(this);ProfilePhotoSync.ensure(this);", 1)
+          home.write_text(h)
+
+          # Register FCM token and create the Android notification channel.
+          src = next(root.rglob("app/src/main/java/com/videocalllive/app"), None)
+          if not src: raise SystemExit("Java package source directory not found")
+          setup = src / "NotificationSetup.java"
+          setup.write_text("""package com.videocalllive.app;
+          import android.Manifest;import android.app.*;import android.content.*;import android.content.pm.PackageManager;import android.os.Build;
+          import androidx.core.app.ActivityCompat;import androidx.core.content.ContextCompat;
+          import com.google.firebase.auth.FirebaseAuth;import com.google.firebase.firestore.FieldValue;import com.google.firebase.firestore.FirebaseFirestore;import com.google.firebase.messaging.FirebaseMessaging;
+          public final class NotificationSetup {
+            private static final int REQUEST_POST_NOTIFICATIONS=5801;
+            private NotificationSetup(){}
+            public static void ensure(Activity activity){
+              if(Build.VERSION.SDK_INT>=33 && ContextCompat.checkSelfPermission(activity,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){
+                ActivityCompat.requestPermissions(activity,new String[]{Manifest.permission.POST_NOTIFICATIONS},REQUEST_POST_NOTIFICATIONS);
+              }
+              if(Build.VERSION.SDK_INT>=26){
+                NotificationManager nm=(NotificationManager)activity.getSystemService(Context.NOTIFICATION_SERVICE);
+                if(nm!=null)nm.createNotificationChannel(new NotificationChannel("chat_messages","Chat messages",NotificationManager.IMPORTANCE_HIGH));
+              }
+              String uid=FirebaseAuth.getInstance().getUid();if(uid==null)return;
+              FirebaseMessaging.getInstance().getToken().addOnSuccessListener(token->{
+                if(token!=null&&!token.isEmpty())FirebaseFirestore.getInstance().collection("users").document(uid).update("fcmTokens",FieldValue.arrayUnion(token)).addOnFailureListener(e->{});
+              });
+            }
+            public static void saveToken(String token){
+              String uid=FirebaseAuth.getInstance().getUid();if(uid!=null&&token!=null&&!token.isEmpty())FirebaseFirestore.getInstance().collection("users").document(uid).update("fcmTokens",FieldValue.arrayUnion(token)).addOnFailureListener(e->{});
+            }
+          }
+          """)
+          service = src / "ChatMessagingService.java"
+          service.write_text("""package com.videocalllive.app;
+          import android.app.*;import android.content.*;import android.os.Build;import androidx.core.app.NotificationCompat;
+          import com.google.firebase.messaging.FirebaseMessagingService;import com.google.firebase.messaging.RemoteMessage;
+          public class ChatMessagingService extends FirebaseMessagingService {
+            @Override public void onNewToken(String token){NotificationSetup.saveToken(token);}
+            @Override public void onMessageReceived(RemoteMessage message){
+              String title=message.getNotification()!=null?message.getNotification().getTitle():message.getData().getOrDefault("title","New message");
+              String body=message.getNotification()!=null?message.getNotification().getBody():message.getData().getOrDefault("body","You received a message");
+              Intent open=new Intent(this,MessagesActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);
+              PendingIntent pi=PendingIntent.getActivity(this,5802,open,PendingIntent.FLAG_UPDATE_CURRENT|(Build.VERSION.SDK_INT>=23?PendingIntent.FLAG_IMMUTABLE:0));
+              Notification n=new NotificationCompat.Builder(this,"chat_messages").setSmallIcon(getApplicationInfo().icon).setContentTitle(title).setContentText(body).setStyle(new NotificationCompat.BigTextStyle().bigText(body)).setAutoCancel(true).setPriority(NotificationCompat.PRIORITY_HIGH).setContentIntent(pi).build();
+              NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);if(nm!=null)nm.notify((int)(System.currentTimeMillis()%Integer.MAX_VALUE),n);
+            }
+          }
+          """)
+          manifest = find("AndroidManifest.xml")
+          a = manifest.read_text()
+          if "android.permission.POST_NOTIFICATIONS" not in a:
+              a = a.replace('<application ', '<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n<application ', 1)
+          if "ChatMessagingService" not in a:
+              a = a.replace('</application>', '<service android:name=".ChatMessagingService" android:exported="false"><intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT"/></intent-filter></service>\n</application>',1)
+          manifest.write_text(a)
+
+          # V59: show the live unread-message total on the Chats item in the bottom navigation on every main screen.
+          ui = find("Ui.java")
+          u = ui.read_text()
+          old_nav = 'nav.addView(b);}return nav;}'
+          new_nav = '''nav.addView(b);} attachUnreadCount(a,nav);return nav;}
+           public static void attachUnreadCount(Activity a, LinearLayout nav){
+            if(nav.getChildCount()<2)return;
+            final Button chats=(Button)nav.getChildAt(1);
+            final String uid=com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
+            if(uid==null)return;
+            chats.setText("☏\\nChats");
+            com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("chats").whereArrayContains("participants",uid).addSnapshotListener((q,e)->{
+             if(e!=null||q==null)return;
+             long total=0;
+             for(com.google.firebase.firestore.DocumentSnapshot d:q.getDocuments()){
+              Object raw=d.get("unreadCounts");
+              if(raw instanceof java.util.Map){Object value=((java.util.Map<?,?>)raw).get(uid);if(value instanceof Number)total+=Math.max(0,((Number)value).longValue());}
+             }
+             String count=total>99?"99+":String.valueOf(total);
+             chats.setText(total>0?"☏ "+count+"\\nChats":"☏\\nChats");
+            });
+           }'''
+          if old_nav not in u:
+              raise SystemExit("Ui.nav() insertion anchor not found; refusing unsafe V59 patch")
+          u=u.replace(old_nav,new_nav,1)
+          ui.write_text(u)
+
+          # Register FCM on each main destination as well as Home so returning users refresh their token.
+          for activity in ["MessagesActivity.java","VideoHubActivity.java","MyProfileActivity.java"]:
+              p=find(activity); s=p.read_text()
+              if "NotificationSetup.ensure(this)" not in s:
+                  if activity=="MessagesActivity.java":
+                      anchor=' public void onCreate(Bundle b){super.onCreate(b);'
+                      replacement=' public void onCreate(Bundle b){super.onCreate(b);NotificationSetup.ensure(this);'
+                  elif activity=="VideoHubActivity.java":
+                      anchor=' public void onCreate(Bundle x){super.onCreate(x);'
+                      replacement=' public void onCreate(Bundle x){super.onCreate(x);NotificationSetup.ensure(this);'
+                  else:
+                      anchor=' public void onCreate(Bundle b){super.onCreate(b);'
+                      replacement=' public void onCreate(Bundle b){super.onCreate(b);NotificationSetup.ensure(this);'
+                  if anchor not in s:
+                      raise SystemExit(activity+" onCreate anchor not found")
+                  s=s.replace(anchor,replacement,1);p.write_text(s)
+
+          # Advance app version for the navigation badge change.
+          g=gradle.read_text()
+          if 'versionCode 58' not in g or 'versionName "58.0-chat-notifications-unread-count"' not in g:
+              raise SystemExit("Expected V58 version markers before V59 change not found")
+          gradle.write_text(g.replace('versionCode 58','versionCode 59',1).replace('versionName "58.0-chat-notifications-unread-count"','versionName "59.0-global-chat-unread-badge"',1))
+          print("V59: live total unread badge added to bottom Chats navigation item across Home, Chats, Video and Profile screens.")
+
+          # Versioned diagnostics from the final Java source.
+          from zipfile import ZipFile, ZIP_DEFLATED
+          java_root = next(root.rglob("app/src/main/java"), None)
+          if not java_root: raise SystemExit("Java source root missing")
+          with ZipFile("/tmp/VideoCallLive-V64-Source-Diagnostics.zip","w",ZIP_DEFLATED) as z:
+            for p in java_root.rglob("*.java"): z.write(p,p.relative_to(java_root.parent.parent.parent))
+            z.write(gradle,"app/build.gradle")
+          print("V58 app-side unread counts, FCM token registration, and notification receiver patch applied.")
+          PY
+          # Rename the signed deliverables for this build version.
+          sed -i 's/VideoCallLive-V64/VideoCallLive-V64/g' .github/workflows/main.yml
+
+      - name: Apply V60 keep chat composer and keyboard open after sending
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          chat = next(root.rglob("ChatActivity.java"), None)
+          if chat is None:
+              raise SystemExit("ChatActivity.java not found; refusing unsafe V60 patch")
+          c = chat.read_text()
+          if "InputMethodManager" not in c:
+              c = c.replace("import android.content.*;", "import android.content.*;import android.view.inputmethod.InputMethodManager;")
+          if "SOFT_INPUT_ADJUST_RESIZE" not in c:
+              anchor = "super.onCreate("
+              idx = c.find(anchor)
+              if idx < 0: raise SystemExit("ChatActivity onCreate not found")
+              line_end = c.find("\n", idx)
+              c = c[:line_end+1] + "  getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE | WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);\n" + c[line_end+1:]
+              if "import android.view.WindowManager;" not in c:
+                  c = c.replace("import android.view.*;", "import android.view.*;") if "import android.view.*;" in c else c.replace("import android.app.*;", "import android.app.*;import android.view.WindowManager;")
+          old = 'addOnSuccessListener(z->{input.setText("");send.setEnabled(true);})'
+          new = 'addOnSuccessListener(z->{input.setText("");send.setEnabled(true);input.requestFocus();input.postDelayed(()->{InputMethodManager imm=(InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);if(imm!=null){imm.showSoftInput(input,InputMethodManager.SHOW_FORCED);imm.restartInput(input);}},350);})'
+          if old not in c:
+              if "InputMethodManager imm=" not in c:
+                  raise SystemExit("Message send success anchor not found; refusing unsafe V60 patch")
+          else:
+              c = c.replace(old,new,1)
+          # Keep the send control from taking focus away from the text field.
+          c = c.replace("send.setOnClickListener", "send.setFocusable(false);send.setFocusableInTouchMode(false);send.setOnClickListener", 1)
+          chat.write_text(c)
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if gradle is None: raise SystemExit("app/build.gradle not found")
+          g = gradle.read_text()
+          if 'versionCode 59' not in g or 'versionName "59.0-global-chat-unread-badge"' not in g:
+              raise SystemExit("Expected V59 version markers not found")
+          g = g.replace('versionCode 59','versionCode 60',1).replace('versionName "59.0-global-chat-unread-badge"','versionName "60.0-chat-keyboard-stays-open"',1)
+          gradle.write_text(g)
+          print("V60 chat composer refocuses after send and requests keyboard to remain open.")
+          PY
+
+      - name: Apply V61 chat composer positioning fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          chat = next(root.rglob("ChatActivity.java"), None)
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if chat is None or gradle is None:
+              raise SystemExit("ChatActivity.java or app/build.gradle not found")
+          source = chat.read_text()
+          listener = '  final View activityRoot=root;activityRoot.getViewTreeObserver().addOnGlobalLayoutListener(()->{android.graphics.Rect visible=new android.graphics.Rect();activityRoot.getWindowVisibleDisplayFrame(visible);int[] loc=new int[2];composer.getLocationOnScreen(loc);int composerBottom=loc[1]+composer.getHeight();int overlap=composerBottom-visible.bottom;if(overlap>Ui.dp(this,8)){composer.setTranslationY(-overlap-Ui.dp(this,4));}else composer.setTranslationY(0);});'
+          if listener not in source:
+              raise SystemExit("Expected composer translation listener not found; refusing to build")
+          source = source.replace(listener, "", 1)
+          chat.write_text(source)
+          g = gradle.read_text()
+          if 'versionCode 60' not in g or 'versionName "60.0-chat-keyboard-stays-open"' not in g:
+              raise SystemExit("Expected V60 version markers not found")
+          g = g.replace('versionCode 60','versionCode 61',1).replace('versionName "60.0-chat-keyboard-stays-open"','versionName "61.0-chat-composer-position-fix"',1)
+          gradle.write_text(g)
+          print("V61 removed the global-layout composer translation; Android adjustResize now controls keyboard layout.")
+          PY
+
+      - name: Apply V62 Android 15 chat keyboard resize fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          chat = next(root.rglob("ChatActivity.java"), None)
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if chat is None or gradle is None:
+              raise SystemExit("ChatActivity.java or app/build.gradle not found")
+          c = chat.read_text()
+          if "WindowCompat.setDecorFitsSystemWindows" not in c:
+              c = c.replace("import android.app.*;", "import android.app.*;import androidx.core.view.WindowCompat;", 1)
+              anchor = "getWindow().setSoftInputMode("
+              if anchor not in c:
+                  raise SystemExit("ChatActivity soft input configuration not found")
+              c = c.replace(anchor, "WindowCompat.setDecorFitsSystemWindows(getWindow(), true);getWindow().setSoftInputMode(", 1)
+          if "root.setFitsSystemWindows(true);" not in c:
+              c = c.replace("LinearLayout root=Ui.root(this);", "LinearLayout root=Ui.root(this);root.setFitsSystemWindows(true);", 1)
+          chat.write_text(c)
+          g = gradle.read_text()
+          if 'versionCode 61' not in g or 'versionName "61.0-chat-composer-position-fix"' not in g:
+              raise SystemExit("Expected V61 version markers not found")
+          g = g.replace('versionCode 61','versionCode 62',1).replace('versionName "61.0-chat-composer-position-fix"','versionName "62.0-chat-ime-resize-edge-to-edge-fix"',1)
+          gradle.write_text(g)
+          print("V62: opted ChatActivity out of forced edge-to-edge decor and enabled fit-system-windows with IME resize.")
+          PY
+
+      - name: Apply V63 WebRTC SDP and ICE reliability fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          def find(name):
+              p = next(root.rglob(name), None)
+              if p is None: raise SystemExit(name + " not found")
+              return p
+          gradle = find("app/build.gradle")
+          g = gradle.read_text()
+          if 'versionCode 62' not in g or 'versionName "62.0-chat-ime-resize-edge-to-edge-fix"' not in g:
+              raise SystemExit("Expected V62 version markers missing; refusing V63 patch")
+          gradle.write_text(g.replace('versionCode 62','versionCode 63',1).replace('versionName "62.0-chat-ime-resize-edge-to-edge-fix"','versionName "63.0-webrtc-sdp-ice-reliability"',1))
+          p = find("WebRtcClient.java")
+          s = p.read_text()
+          old = 'public void offer(final SdpObserver out){pc.createOffer(new SdpObserver(){public void onCreateSuccess(SessionDescription s){pc.setLocalDescription(new SimpleSdp(),s);out.onCreateSuccess(s);}public void onSetSuccess(){}public void onCreateFailure(String e){out.onCreateFailure(e);}public void onSetFailure(String e){}},new MediaConstraints());}'
+          new = 'public void offer(final SdpObserver out){if(pc==null){out.onCreateFailure("Peer connection is unavailable");return;}pc.createOffer(new SdpObserver(){public void onCreateSuccess(SessionDescription s){pc.setLocalDescription(new SdpObserver(){public void onCreateSuccess(SessionDescription x){}public void onSetSuccess(){out.onCreateSuccess(s);}public void onCreateFailure(String e){out.onCreateFailure(e);}public void onSetFailure(String e){out.onSetFailure("setLocalDescription(offer): "+e);}},s);}public void onSetSuccess(){}public void onCreateFailure(String e){out.onCreateFailure("createOffer: "+e);}public void onSetFailure(String e){out.onSetFailure(e);}},new MediaConstraints());}'
+          if old not in s: raise SystemExit("WebRtcClient offer() source mismatch")
+          s = s.replace(old,new,1)
+          old = 'public void answer(final SdpObserver out){pc.createAnswer(new SdpObserver(){public void onCreateSuccess(SessionDescription s){pc.setLocalDescription(new SimpleSdp(),s);out.onCreateSuccess(s);}public void onSetSuccess(){}public void onCreateFailure(String e){out.onCreateFailure(e);}public void onSetFailure(String e){}},new MediaConstraints());}'
+          new = 'public void answer(final SdpObserver out){if(pc==null){out.onCreateFailure("Peer connection is unavailable");return;}pc.createAnswer(new SdpObserver(){public void onCreateSuccess(SessionDescription s){pc.setLocalDescription(new SdpObserver(){public void onCreateSuccess(SessionDescription x){}public void onSetSuccess(){out.onCreateSuccess(s);}public void onCreateFailure(String e){out.onCreateFailure(e);}public void onSetFailure(String e){out.onSetFailure("setLocalDescription(answer): "+e);}},s);}public void onSetSuccess(){}public void onCreateFailure(String e){out.onCreateFailure("createAnswer: "+e);}public void onSetFailure(String e){out.onSetFailure(e);}},new MediaConstraints());}'
+          if old not in s: raise SystemExit("WebRtcClient answer() source mismatch")
+          s = s.replace(old,new,1)
+          old = 'public void remote(String type,String sdp){pc.setRemoteDescription(new SimpleSdp(){public void onSetSuccess(){synchronized(pendingIce){remoteReady=true;for(IceCandidate c:pendingIce)pc.addIceCandidate(c);pendingIce.clear();}}},new SessionDescription("offer".equals(type)?SessionDescription.Type.OFFER:SessionDescription.Type.ANSWER,sdp));}'
+          new = 'public void remote(String type,String sdp){if(pc==null||sdp==null||sdp.trim().isEmpty()){listener.onError("Remote "+type+" SDP is empty or peer connection is unavailable");return;}pc.setRemoteDescription(new SimpleSdp(){public void onSetSuccess(){synchronized(pendingIce){remoteReady=true;for(IceCandidate c:pendingIce){if(!pc.addIceCandidate(c))listener.onError("ICE candidate was rejected by WebRTC");}pendingIce.clear();}}public void onSetFailure(String e){listener.onError("setRemoteDescription("+type+"): "+e);}},new SessionDescription("offer".equals(type)?SessionDescription.Type.OFFER:SessionDescription.Type.ANSWER,sdp));}'
+          if old not in s: raise SystemExit("WebRtcClient remote() source mismatch")
+          s = s.replace(old,new,1)
+          old = 'public void ice(String mid,int index,String sdp){if(sdp==null)return;IceCandidate c=new IceCandidate(mid,index,sdp);synchronized(pendingIce){if(remoteReady)pc.addIceCandidate(c);else pendingIce.add(c);}}'
+          new = 'public void ice(String mid,int index,String sdp){if(sdp==null||pc==null)return;IceCandidate c=new IceCandidate(mid,index,sdp);synchronized(pendingIce){if(remoteReady){if(!pc.addIceCandidate(c))listener.onError("ICE candidate could not be added");}else pendingIce.add(c);}}'
+          if old not in s: raise SystemExit("WebRtcClient ice() source mismatch")
+          s = s.replace(old,new,1)
+          p.write_text(s)
+          p = find("RealCallActivity.java")
+          s = p.read_text()
+          old = 'public void onDisconnected(){runOnUiThread(()->status.setText(otherName+" • Disconnected"));}});'
+          new = 'public void onDisconnected(){runOnUiThread(()->status.setText(otherName+" • Disconnected"));}public void onError(String message){runOnUiThread(()->status.setText("WebRTC error: "+message));}});'
+          if old not in s: raise SystemExit("RealCallActivity WebRTC listener source mismatch")
+          s = s.replace(old,new,1)
+          p.write_text(s)
+          print("V63 SDP sequencing and ICE diagnostics patch applied.")
+          # V64: WebRtcClient now calls listener.onError(), so declare it on the
+          # Listener interface. Fail safely if the source shape is unexpected.
+          s = p.read_text()
+          marker = "public interface Listener {"
+          if marker not in s:
+              raise SystemExit("WebRtcClient Listener interface marker missing")
+          if "void onError(String message);" not in s:
+              s = s.replace(marker, marker + " void onError(String message);", 1)
+              p.write_text(s)
+          # Keep the version number in sync for this build.
+          gradle = find("app/build.gradle")
+          g = gradle.read_text()
+          if 'versionCode 63' not in g or 'versionName "63.0-webrtc-sdp-ice-reliability"' not in g:
+              raise SystemExit("Expected V63 version markers missing; refusing V64 patch")
+          gradle.write_text(g.replace('versionCode 63','versionCode 64',1).replace('versionName "63.0-webrtc-sdp-ice-reliability"','versionName "64.0-webrtc-listener-interface-fix"',1))
+          print("V64 Listener interface fix applied.")
+          PY
 
       - name: Diagnose and install Android SDK API 36
         shell: bash
@@ -680,7 +1399,7 @@ jobs:
       - name: Upload Android SDK diagnostics
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V53-Android-SDK-Diagnostics
+          name: VideoCallLive-V64-Android-SDK-Diagnostics
           path: /tmp/android-sdk-diagnostics/sdkmanager.txt
           if-no-files-found: error
           retention-days: 7
@@ -688,8 +1407,8 @@ jobs:
       - name: Upload source diagnostics for code review
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V53-Source-Diagnostics
-          path: /tmp/VideoCallLive-V53-Source-Diagnostics.zip
+          name: VideoCallLive-V64-Source-Diagnostics
+          path: /tmp/VideoCallLive-V64-Source-Diagnostics.zip
           if-no-files-found: error
           retention-days: 7
 
@@ -717,6 +1436,7 @@ jobs:
           echo "AAB found: $AAB"
 
       - name: Restore signing keystore
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -729,6 +1449,7 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
 
       - name: Sign APK
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -738,10 +1459,11 @@ jobs:
           set -euo pipefail
           mkdir -p signed
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V53-aligned.apk
-          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V53.apk             signed/VideoCallLive-V53-aligned.apk
+          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V64-aligned.apk
+          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V64.apk             signed/VideoCallLive-V64-aligned.apk
 
       - name: Sign Android App Bundle
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -749,14 +1471,15 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          cp "$UNSIGNED_AAB" signed/VideoCallLive-V53.aab
-          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V53.aab "$KEY_ALIAS"
+          cp "$UNSIGNED_AAB" signed/VideoCallLive-V64.aab
+          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V64.aab "$KEY_ALIAS"
 
       - name: Verify signed Android App Bundle
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
-          jarsigner -verify -verbose signed/VideoCallLive-V53.aab > /tmp/aab-verify.txt 2>&1
+          jarsigner -verify -verbose signed/VideoCallLive-V64.aab > /tmp/aab-verify.txt 2>&1
           cat /tmp/aab-verify.txt | tail -30
           if ! grep -qi "jar verified" /tmp/aab-verify.txt; then
             echo "ERROR: jarsigner did not confirm the AAB signature"
@@ -765,24 +1488,27 @@ jobs:
           echo "AAB signature verified"
 
       - name: Verify signed APK
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V53.apk
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V64.apk
 
       - name: Upload signed APK
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V53-Play-Store-API36-AAB
-          path: signed/VideoCallLive-V53.apk
+          name: VideoCallLive-V64-APK
+          path: signed/VideoCallLive-V64.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload signed AAB for Google Play Console
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V53-Play-Store-AAB
-          path: signed/VideoCallLive-V53.aab
+          name: VideoCallLive-V64-Play-Store-AAB
+          path: signed/VideoCallLive-V64.aab
           if-no-files-found: error
           retention-days: 30
