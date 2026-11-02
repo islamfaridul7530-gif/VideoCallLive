@@ -1346,13 +1346,14 @@ jobs:
           print("V63 SDP sequencing and ICE diagnostics patch applied.")
           # V64: WebRtcClient now calls listener.onError(), so declare it on the
           # Listener interface. Fail safely if the source shape is unexpected.
-          s = p.read_text()
+          w = find("WebRtcClient.java")
+          ws = w.read_text()
           marker = "public interface Listener {"
-          if marker not in s:
+          if marker not in ws:
               raise SystemExit("WebRtcClient Listener interface marker missing")
-          if "void onError(String message);" not in s:
-              s = s.replace(marker, marker + " void onError(String message);", 1)
-              p.write_text(s)
+          if "void onError(String message);" not in ws:
+              ws = ws.replace(marker, marker + " void onError(String message);", 1)
+              w.write_text(ws)
           # Keep the version number in sync for this build.
           gradle = find("app/build.gradle")
           g = gradle.read_text()
