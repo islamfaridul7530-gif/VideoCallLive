@@ -1413,6 +1413,48 @@ jobs:
           print("V65: camera capture 640x360@20fps, video bitrate 150-900 kbps; diagnostics refreshed.")
           PY
 
+      - name: Apply V66 restore original WebRTC call implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          import shutil
+          base = Path("VideoCallLive-PAYMENT-TEST-15-FINAL.zip")
+          root = Path("extracted")
+          if not base.exists():
+              raise SystemExit("Base source ZIP missing; refusing V66 restore")
+          with ZipFile(base) as z:
+              for name in ("WebRtcClient.java", "RealCallActivity.java"):
+                  matches = [n for n in z.namelist() if n.endswith("/" + name) or n == name]
+                  if len(matches) != 1:
+                      raise SystemExit(f"Expected exactly one original {name}, found {len(matches)}")
+                  target = next(root.rglob(name), None)
+                  if target is None:
+                      raise SystemExit(f"Extracted target {name} missing")
+                  target.write_bytes(z.read(matches[0]))
+                  print(f"Restored original {name} from base project")
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if gradle is None:
+              raise SystemExit("app/build.gradle missing")
+          g = gradle.read_text()
+          if 'versionCode 65' not in g or 'versionName "65.0-low-bandwidth-call-stability"' not in g:
+              raise SystemExit("Expected V65 markers missing; refusing V66 version update")
+          g = g.replace('versionCode 65', 'versionCode 66', 1)
+          g = g.replace('versionName "65.0-low-bandwidth-call-stability"', 'versionName "66.0-restore-original-webrtc"', 1)
+          gradle.write_text(g)
+          java_root = next(root.rglob("app/src/main/java"), None)
+          if java_root is None:
+              raise SystemExit("Java source root missing")
+          out = Path("/tmp/VideoCallLive-V66-Source-Diagnostics.zip")
+          with ZipFile(out, "w", ZIP_DEFLATED) as z:
+              for f in java_root.rglob("*.java"):
+                  z.write(f, f.relative_to(java_root.parent.parent.parent))
+              z.write(gradle, "app/build.gradle")
+          print("V66 restores the original WebRTC implementation and camera defaults; other V58-V62 app fixes remain applied.")
+          PY
+
       - name: Diagnose and install Android SDK API 36
         shell: bash
         run: |
