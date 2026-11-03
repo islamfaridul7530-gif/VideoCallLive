@@ -645,7 +645,7 @@ jobs:
           print("V53 version 53, compileSdk 36, targetSdk 36 confirmed.")
           print(f"Created source archive: {out}")
           PY
-          sed -i 's/VideoCallLive-V65-aligned.apk/VideoCallLive-V67-aligned.apk/g; s/VideoCallLive-V67.apk/VideoCallLive-V67.apk/g' .github/workflows/main.yml
+          sed -i 's/VideoCallLive-V65-aligned.apk/VideoCallLive-V68-aligned.apk/g; s/VideoCallLive-V68.apk/VideoCallLive-V68.apk/g' .github/workflows/main.yml
 
       - name: Apply V58 privacy and account-deletion changes
         shell: bash
@@ -783,7 +783,7 @@ jobs:
           gradle = next(root.rglob("app/build.gradle"), None)
           if not src or not gradle:
               raise SystemExit("V58 diagnostic source tree not found")
-          out = Path("/tmp/VideoCallLive-V67-Source-Diagnostics.zip")
+          out = Path("/tmp/VideoCallLive-V68-Source-Diagnostics.zip")
           with ZipFile(out, "w", ZIP_DEFLATED) as z:
               for p in src.rglob("*.java"):
                   z.write(p, p.relative_to(src.parent.parent.parent))
@@ -982,10 +982,10 @@ jobs:
           # Keep artifact names/version labels aligned with V57.
           workflow = Path(".github/workflows/main.yml")
           w = workflow.read_text()
-          w = w.replace("VideoCallLive-V67.apk", "VideoCallLive-V57.apk")
-          w = w.replace("VideoCallLive-V67-aligned.apk", "VideoCallLive-V57-aligned.apk")
-          w = w.replace("VideoCallLive-V67-Play-Store-API36-AAB", "VideoCallLive-V57-Play-Store-API36-AAB")
-          w = w.replace("VideoCallLive-V67-Play-Store-AAB", "VideoCallLive-V57-Play-Store-AAB")
+          w = w.replace("VideoCallLive-V68.apk", "VideoCallLive-V57.apk")
+          w = w.replace("VideoCallLive-V68-aligned.apk", "VideoCallLive-V57-aligned.apk")
+          w = w.replace("VideoCallLive-V68-Play-Store-API36-AAB", "VideoCallLive-V57-Play-Store-API36-AAB")
+          w = w.replace("VideoCallLive-V68-Play-Store-AAB", "VideoCallLive-V57-Play-Store-AAB")
           workflow.write_text(w)
 
           from zipfile import ZipFile, ZIP_DEFLATED
@@ -1198,13 +1198,13 @@ jobs:
           from zipfile import ZipFile, ZIP_DEFLATED
           java_root = next(root.rglob("app/src/main/java"), None)
           if not java_root: raise SystemExit("Java source root missing")
-          with ZipFile("/tmp/VideoCallLive-V67-Source-Diagnostics.zip","w",ZIP_DEFLATED) as z:
+          with ZipFile("/tmp/VideoCallLive-V68-Source-Diagnostics.zip","w",ZIP_DEFLATED) as z:
             for p in java_root.rglob("*.java"): z.write(p,p.relative_to(java_root.parent.parent.parent))
             z.write(gradle,"app/build.gradle")
           print("V58 app-side unread counts, FCM token registration, and notification receiver patch applied.")
           PY
           # Rename the signed deliverables for this build version.
-          sed -i 's/VideoCallLive-V67/VideoCallLive-V67/g' .github/workflows/main.yml
+          sed -i 's/VideoCallLive-V68/VideoCallLive-V68/g' .github/workflows/main.yml
 
       - name: Apply V60 keep chat composer and keyboard open after sending
         shell: bash
@@ -1447,7 +1447,7 @@ jobs:
           java_root = next(root.rglob("app/src/main/java"), None)
           if java_root is None:
               raise SystemExit("Java source root missing")
-          out = Path("/tmp/VideoCallLive-V67-Source-Diagnostics.zip")
+          out = Path("/tmp/VideoCallLive-V68-Source-Diagnostics.zip")
           with ZipFile(out, "w", ZIP_DEFLATED) as z:
               for f in java_root.rglob("*.java"):
                   z.write(f, f.relative_to(java_root.parent.parent.parent))
@@ -1498,12 +1498,61 @@ jobs:
           java_root = next(root.rglob("app/src/main/java"), None)
           if java_root is None:
               raise SystemExit("Java source root missing")
-          out = Path("/tmp/VideoCallLive-V67-Source-Diagnostics.zip")
+          out = Path("/tmp/VideoCallLive-V68-Source-Diagnostics.zip")
           with ZipFile(out, "w", ZIP_DEFLATED) as z:
               for f in java_root.rglob("*.java"):
                   z.write(f, f.relative_to(java_root.parent.parent.parent))
               z.write(gradle, "app/build.gradle")
           print("V67 adds the required call participants list and waits for call-document creation before starting WebRTC offer signaling.")
+          PY
+
+      - name: Apply V68 WebRTC SDP sequencing and connection diagnostics fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          w = next(root.rglob("WebRtcClient.java"), None)
+          a = next(root.rglob("RealCallActivity.java"), None)
+          g = next(root.rglob("app/build.gradle"), None)
+          if not all((w, a, g)):
+              raise SystemExit("Required WebRTC source or Gradle file missing")
+          s = w.read_text()
+          old = 'public void offer(final SdpObserver out){pc.createOffer(new SdpObserver(){public void onCreateSuccess(SessionDescription s){pc.setLocalDescription(new SimpleSdp(),s);out.onCreateSuccess(s);}public void onSetSuccess(){}public void onCreateFailure(String e){out.onCreateFailure(e);}public void onSetFailure(String e){}},new MediaConstraints());}'
+          new = 'public void offer(final SdpObserver out){if(pc==null){out.onCreateFailure("Peer connection unavailable");return;}pc.createOffer(new SdpObserver(){public void onCreateSuccess(SessionDescription s){pc.setLocalDescription(new SdpObserver(){public void onCreateSuccess(SessionDescription x){}public void onSetSuccess(){out.onCreateSuccess(s);}public void onCreateFailure(String e){out.onCreateFailure("setLocalDescription offer: "+e);}public void onSetFailure(String e){out.onSetFailure("setLocalDescription offer: "+e);}},s);}public void onSetSuccess(){}public void onCreateFailure(String e){out.onCreateFailure("createOffer: "+e);}public void onSetFailure(String e){out.onSetFailure(e);}},new MediaConstraints());}'
+          if old not in s: raise SystemExit("V68 offer() source mismatch")
+          s = s.replace(old, new, 1)
+          old = 'public void answer(final SdpObserver out){pc.createAnswer(new SdpObserver(){public void onCreateSuccess(SessionDescription s){pc.setLocalDescription(new SimpleSdp(),s);out.onCreateSuccess(s);}public void onSetSuccess(){}public void onCreateFailure(String e){out.onCreateFailure(e);}public void onSetFailure(String e){}},new MediaConstraints());}'
+          new = 'public void answer(final SdpObserver out){if(pc==null){out.onCreateFailure("Peer connection unavailable");return;}pc.createAnswer(new SdpObserver(){public void onCreateSuccess(SessionDescription s){pc.setLocalDescription(new SdpObserver(){public void onCreateSuccess(SessionDescription x){}public void onSetSuccess(){out.onCreateSuccess(s);}public void onCreateFailure(String e){out.onCreateFailure("setLocalDescription answer: "+e);}public void onSetFailure(String e){out.onSetFailure("setLocalDescription answer: "+e);}},s);}public void onSetSuccess(){}public void onCreateFailure(String e){out.onCreateFailure("createAnswer: "+e);}public void onSetFailure(String e){out.onSetFailure(e);}},new MediaConstraints());}'
+          if old not in s: raise SystemExit("V68 answer() source mismatch")
+          s = s.replace(old, new, 1)
+          old = 'public void remote(String type,String sdp){pc.setRemoteDescription(new SimpleSdp(){public void onSetSuccess(){synchronized(pendingIce){remoteReady=true;for(IceCandidate c:pendingIce)pc.addIceCandidate(c);pendingIce.clear();}}},new SessionDescription("offer".equals(type)?SessionDescription.Type.OFFER:SessionDescription.Type.ANSWER,sdp));}'
+          new = 'public void remote(String type,String sdp){remote(type,sdp,new SimpleSdp());} public void remote(String type,String sdp,SdpObserver callback){if(pc==null||sdp==null||sdp.trim().isEmpty()){callback.onSetFailure("Remote "+type+" SDP is empty or peer connection unavailable");return;}pc.setRemoteDescription(new SdpObserver(){public void onCreateSuccess(SessionDescription d){}public void onCreateFailure(String e){}public void onSetSuccess(){synchronized(pendingIce){remoteReady=true;for(IceCandidate c:pendingIce){if(!pc.addIceCandidate(c))listener.onError("Queued ICE candidate rejected");}pendingIce.clear();}callback.onSetSuccess();}public void onSetFailure(String e){callback.onSetFailure("setRemoteDescription "+type+": "+e);}},new SessionDescription("offer".equals(type)?SessionDescription.Type.OFFER:SessionDescription.Type.ANSWER,sdp));}'
+          if old not in s: raise SystemExit("V68 remote() source mismatch")
+          s = s.replace(old, new, 1)
+          old = 'public void ice(String mid,int index,String sdp){if(sdp==null)return;IceCandidate c=new IceCandidate(mid,index,sdp);synchronized(pendingIce){if(remoteReady)pc.addIceCandidate(c);else pendingIce.add(c);}}'
+          new = 'public void ice(String mid,int index,String sdp){if(sdp==null||pc==null)return;IceCandidate c=new IceCandidate(mid,index,sdp);synchronized(pendingIce){if(remoteReady){if(!pc.addIceCandidate(c))listener.onError("Remote ICE candidate rejected");}else pendingIce.add(c);}}'
+          if old not in s: raise SystemExit("V68 ice() source mismatch")
+          s = s.replace(old, new, 1)
+          s = s.replace(' public interface Listener { void onIce(IceCandidate c); void onConnected(); void onDisconnected(); }',' public interface Listener { void onIce(IceCandidate c); void onConnected(); void onDisconnected(); void onError(String message); }',1)
+          w.write_text(s)
+          t = a.read_text()
+          old = 'public void onDisconnected(){runOnUiThread(()->status.setText(otherName+" • Disconnected"));}});'
+          new = 'public void onDisconnected(){runOnUiThread(()->status.setText(otherName+" • ICE disconnected/failed"));}public void onError(String message){runOnUiThread(()->status.setText("WebRTC: "+message));}});'
+          if old not in t: raise SystemExit("V68 listener implementation point missing")
+          t = t.replace(old,new,1)
+          old = 'answered=true;rtc.remote("offer",offer);rtc.answer(new WebRtcClient.SimpleSdp(){public void onCreateSuccess(SessionDescription a){ref.update("answerType","answer","answerSdp",a.description,"status","accepted");runOnUiThread(()->status.setText(otherName+" • Connecting…"));listenIce("callerCandidates");}public void onCreateFailure(String error){runOnUiThread(()->status.setText("Answer failed: "+error));}});'
+          new = 'answered=true;listenIce("callerCandidates");rtc.remote("offer",offer,new WebRtcClient.SimpleSdp(){public void onSetSuccess(){rtc.answer(new WebRtcClient.SimpleSdp(){public void onCreateSuccess(SessionDescription a){ref.update("answerType","answer","answerSdp",a.description,"status","accepted").addOnFailureListener(err->runOnUiThread(()->status.setText("Answer signaling failed: "+err.getMessage())));runOnUiThread(()->status.setText(otherName+" • Connecting…"));}public void onCreateFailure(String error){runOnUiThread(()->status.setText("Answer failed: "+error));}public void onSetFailure(String error){runOnUiThread(()->status.setText("Answer local SDP failed: "+error));}});}public void onSetFailure(String error){runOnUiThread(()->status.setText("Remote offer failed: "+error));}});'
+          if old not in t: raise SystemExit("V68 incoming answer sequencing point missing")
+          t = t.replace(old,new,1)
+          a.write_text(t)
+          gradle = g.read_text()
+          if 'versionCode 67' not in gradle or 'versionName "67.0-firestore-call-permission-fix"' not in gradle:
+              raise SystemExit("V68 version markers not found")
+          gradle = gradle.replace('versionCode 67','versionCode 68',1).replace('versionName "67.0-firestore-call-permission-fix"','versionName "68.0-webrtc-sdp-sequencing-fix"',1)
+          g.write_text(gradle)
+          print("V68: SDP callbacks now wait for setLocalDescription; incoming answer waits for setRemoteDescription; ICE errors are surfaced.")
           PY
 
       - name: Diagnose and install Android SDK API 36
@@ -1543,7 +1592,7 @@ jobs:
       - name: Upload Android SDK diagnostics
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V67-Android-SDK-Diagnostics
+          name: VideoCallLive-V68-Android-SDK-Diagnostics
           path: /tmp/android-sdk-diagnostics/sdkmanager.txt
           if-no-files-found: error
           retention-days: 7
@@ -1551,8 +1600,8 @@ jobs:
       - name: Upload source diagnostics for code review
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V67-Source-Diagnostics
-          path: /tmp/VideoCallLive-V67-Source-Diagnostics.zip
+          name: VideoCallLive-V68-Source-Diagnostics
+          path: /tmp/VideoCallLive-V68-Source-Diagnostics.zip
           if-no-files-found: error
           retention-days: 7
 
@@ -1603,8 +1652,8 @@ jobs:
           set -euo pipefail
           mkdir -p signed
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V67-aligned.apk
-          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V67.apk             signed/VideoCallLive-V67-aligned.apk
+          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V68-aligned.apk
+          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V68.apk             signed/VideoCallLive-V68-aligned.apk
 
       - name: Sign Android App Bundle
         if: github.event_name != 'pull_request'
@@ -1615,15 +1664,15 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          cp "$UNSIGNED_AAB" signed/VideoCallLive-V67.aab
-          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V67.aab "$KEY_ALIAS"
+          cp "$UNSIGNED_AAB" signed/VideoCallLive-V68.aab
+          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V68.aab "$KEY_ALIAS"
 
       - name: Verify signed Android App Bundle
         if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
-          jarsigner -verify -verbose signed/VideoCallLive-V67.aab > /tmp/aab-verify.txt 2>&1
+          jarsigner -verify -verbose signed/VideoCallLive-V68.aab > /tmp/aab-verify.txt 2>&1
           cat /tmp/aab-verify.txt | tail -30
           if ! grep -qi "jar verified" /tmp/aab-verify.txt; then
             echo "ERROR: jarsigner did not confirm the AAB signature"
@@ -1637,14 +1686,14 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V67.apk
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V68.apk
 
       - name: Upload signed APK
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V67-APK
-          path: signed/VideoCallLive-V67.apk
+          name: VideoCallLive-V68-APK
+          path: signed/VideoCallLive-V68.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -1652,7 +1701,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V67-Play-Store-AAB
-          path: signed/VideoCallLive-V67.aab
+          name: VideoCallLive-V68-Play-Store-AAB
+          path: signed/VideoCallLive-V68.aab
           if-no-files-found: error
           retention-days: 30
