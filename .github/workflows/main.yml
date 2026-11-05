@@ -1739,7 +1739,7 @@ jobs:
           echo "AAB found: $AAB"
 
       - name: Restore signing keystore
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -1752,7 +1752,7 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
 
       - name: Sign APK
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -1766,7 +1766,7 @@ jobs:
           "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V70.apk             signed/VideoCallLive-V70-aligned.apk
 
       - name: Sign Android App Bundle
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -1778,7 +1778,7 @@ jobs:
           jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V70.aab "$KEY_ALIAS"
 
       - name: Verify signed Android App Bundle
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         run: |
           set -euo pipefail
@@ -1791,7 +1791,7 @@ jobs:
           echo "AAB signature verified"
 
       - name: Verify signed APK
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         run: |
           set -euo pipefail
@@ -1799,7 +1799,7 @@ jobs:
           "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V70.apk
 
       - name: Upload signed APK
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@v4
         with:
           name: VideoCallLive-V70-APK
@@ -1808,7 +1808,7 @@ jobs:
           retention-days: 30
 
       - name: Upload signed AAB for Google Play Console
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@v4
         with:
           name: VideoCallLive-V70-Play-Store-AAB
