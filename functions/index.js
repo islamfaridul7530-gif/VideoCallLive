@@ -858,3 +858,69 @@ exports.chatMessageNotification = onDocumentCreated(
     }
   }
 );
+
+
+/*
+ * One-time free welcome message to all currently-online female profiles.
+ * The backend enforces the one-time limit transactionally; the client cannot reset it.
+ */
+exports.sendFreeOnlineFemaleHi = onCall(
+  { region: "asia-south1" },
+  async (request) => {
+    if (!request.auth) throw new HttpsError("unauthenticated", "Please sign in first.");
+    const uid = request.auth.uid;
+    const senderSnap = await db.collection("users").doc(uid).get();
+    if (!senderSnap.exists || senderSnap.get("gender") !== "male") {
+      throw new HttpsError("permission-denied", "This free welcome feature is for male accounts only.");
+    }
+    const claimRef = db.collection("privateUsers").doc(uid);
+    const claim = await claimRef.get();
+    if (claim.get("freeHiBroadcastUsed") === true) {
+      throw new HttpsError("resource-exhausted", "Your one-time free Hi has already been used. Use paid messaging to continue.");
+    }
+    const now = Date.now();
+    const online = await db.collection("users")
+      .where("gender", "==", "female")
+      .where("online", "==", true)
+      .limit(400).get();
+    const recipients = online.docs.filter(d => d.id !== uid &&
+      typeof d.get("lastSeenAt") === "number" && now - d.get("lastSeenAt") < 90000);
+    if (!recipients.length) throw new HttpsError("failed-precondition", "No female users are online right now.");
+    const senderName = String(senderSnap.get("displayName") || "Someone").slice(0, 80);
+    const batch = db.batch();
+    const messageRefs = [];
+    for (const recipient of recipients) {
+      const ids = [uid, recipient.id].sort();
+      const chatId = ids[0] + "_" + ids[1];
+      const chatRef = db.collection("chats").doc(chatId);
+      const messageRef = chatRef.collection("messages").doc();
+      batch.set(chatRef, {
+        participants: ids, updatedAt: now, lastText: "Hi 👋",
+        lastSenderId: uid, unreadCounts: { [recipient.id]: admin.firestore.FieldValue.increment(1) }
+      }, { merge: true });
+      batch.set(messageRef, {
+        senderId: uid, receiverId: recipient.id, text: "Hi 👋",
+        createdAt: now, type: "text", source: "free_welcome_broadcast"
+      });
+      messageRefs.push({ uid: recipient.id, ref: recipient.ref });
+    }
+    batch.set(claimRef, { freeHiBroadcastUsed: true, freeHiBroadcastAt: admin.firestore.FieldValue.serverTimestamp(), freeHiBroadcastCount: recipients.length }, { merge: true });
+    await batch.commit();
+    const tokenSnaps = await Promise.all(messageRefs.map(x => x.ref.get()));
+    const sendJobs = [];
+    for (let i = 0; i < tokenSnaps.length; i++) {
+      const tokens = tokenSnaps[i].get("fcmTokens");
+      if (Array.isArray(tokens) && tokens.length) {
+        sendJobs.push(admin.messaging().sendEachForMulticast({
+          tokens: [...new Set(tokens.filter(t => typeof t === "string" && t.length > 20))],
+          notification: { title: senderName, body: "Hi 👋" },
+          data: { type: "chat_message", senderId: uid, receiverId: messageRefs[i].uid,
+            chatId: [uid, messageRefs[i].uid].sort().join("_") },
+          android: { priority: "high", notification: { channelId: "chat_messages", sound: "default" } }
+        }));
+      }
+    }
+    await Promise.all(sendJobs);
+    return { success: true, sentCount: recipients.length, oneTimeFreeUsed: true };
+  }
+);
