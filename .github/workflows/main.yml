@@ -1567,28 +1567,41 @@ jobs:
           if p is None or g is None:
               raise SystemExit("HomeActivity.java or app/build.gradle missing")
           s = p.read_text()
-          old = '''  LinearLayout panel=new LinearLayout(this);panel.setOrientation(1);panel.setGravity(Gravity.CENTER);panel.setPadding(Ui.dp(this,24),Ui.dp(this,65),Ui.dp(this,24),Ui.dp(this,35));panel.setBackgroundColor(Color.rgb(15,13,35));
-          TextView top=label("INCOMING VIDEO CALL",15,Color.rgb(188,158,255));top.setGravity(Gravity.CENTER);panel.addView(top);
-          ImageView photo=ProfileImages.avatar(this,null,callerName==null?"User":callerName);LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(Ui.dp(this,200),Ui.dp(this,230));pp.setMargins(0,Ui.dp(this,32),0,Ui.dp(this,18));panel.addView(photo,pp);
-          TextView info=label(callerName==null?"User":callerName,26,Color.WHITE);info.setGravity(Gravity.CENTER);panel.addView(info);
-          TextView country=label("Loading caller details…",16,Color.WHITE);country.setGravity(Gravity.CENTER);panel.addView(country);
-          panel.addView(label("● Incoming call",15,Color.rgb(70,220,130)));
-          LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,Ui.dp(this,75));ap.topMargin=Ui.dp(this,50);panel.addView(actions,ap);
-          Button decline=Ui.secondary(this,"DECLINE");Button accept=Ui.button(this,"ACCEPT");decline.setTextColor(Color.WHITE);accept.setTextColor(Color.WHITE);decline.setTextSize(16);accept.setTextSize(16);decline.setAllCaps(false);accept.setAllCaps(false);actions.addView(decline,new LinearLayout.LayoutParams(0,-1,1));actions.addView(accept,new LinearLayout.LayoutParams(0,-1,1));'''
-          new = '''  LinearLayout panel=new LinearLayout(this);panel.setOrientation(1);panel.setGravity(Gravity.CENTER);panel.setPadding(Ui.dp(this,24),Ui.dp(this,28),Ui.dp(this,24),Ui.dp(this,28));panel.setBackgroundColor(Color.rgb(15,13,35));
-          TextView top=label("INCOMING VIDEO CALL",18,Color.WHITE);top.setGravity(Gravity.CENTER);panel.addView(top);
-          ImageView photo=ProfileImages.avatar(this,null,callerName==null?"User":callerName);photo.setScaleType(ImageView.ScaleType.CENTER_CROP);android.graphics.drawable.GradientDrawable avatarBg=new android.graphics.drawable.GradientDrawable();avatarBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);avatarBg.setColor(Color.rgb(45,38,65));photo.setBackground(avatarBg);photo.setClipToOutline(true);LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(Ui.dp(this,124),Ui.dp(this,124));pp.setMargins(0,Ui.dp(this,24),0,Ui.dp(this,18));panel.addView(photo,pp);
-          TextView info=label(callerName==null?"User":callerName,27,Color.WHITE);info.setGravity(Gravity.CENTER);panel.addView(info);
-          TextView country=label("Loading caller details…",15,Color.LTGRAY);country.setGravity(Gravity.CENTER);panel.addView(country);
-          TextView incoming=label("● Incoming call",14,Color.rgb(70,220,130));incoming.setGravity(Gravity.CENTER);LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(-1,-2);ip.topMargin=Ui.dp(this,8);panel.addView(incoming,ip);
-          LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,Ui.dp(this,82));ap.topMargin=Ui.dp(this,30);panel.addView(actions,ap);
-          Button decline=Ui.secondary(this,"✕");Button accept=Ui.button(this,"✓");for(Button b:new Button[]{decline,accept}){b.setTextColor(Color.WHITE);b.setTextSize(27);b.setAllCaps(false);b.setIncludeFontPadding(false);b.setPadding(0,0,0,0);b.setContentDescription(b==decline?"Decline call":"Accept call");android.graphics.drawable.GradientDrawable circle=new android.graphics.drawable.GradientDrawable();circle.setShape(android.graphics.drawable.GradientDrawable.OVAL);circle.setColor(b==decline?Color.rgb(65,48,76):Color.rgb(240,35,125));b.setBackground(circle);}LinearLayout.LayoutParams dp=new LinearLayout.LayoutParams(Ui.dp(this,76),Ui.dp(this,76));dp.setMargins(Ui.dp(this,24),0,Ui.dp(this,24),0);actions.addView(decline,dp);LinearLayout.LayoutParams acp=new LinearLayout.LayoutParams(Ui.dp(this,76),Ui.dp(this,76));acp.setMargins(Ui.dp(this,24),0,Ui.dp(this,24),0);actions.addView(accept,acp);'''
-          if old not in s:
-              raise SystemExit("V69 incoming call layout source did not match; no changes made")
+          old = 'LinearLayout panel=new LinearLayout(this);panel.setOrientation(1);panel.setGravity(Gravity.CENTER);panel.setPadding(Ui.dp(this,24),Ui.dp(this,65),Ui.dp(this,24),Ui.dp(this,35));panel.setBackgroundColor(Color.rgb(15,13,35));'
+          new = 'LinearLayout panel=new LinearLayout(this);panel.setOrientation(1);panel.setGravity(Gravity.CENTER);panel.setPadding(Ui.dp(this,24),Ui.dp(this,28),Ui.dp(this,24),Ui.dp(this,28));panel.setBackgroundColor(Color.rgb(15,13,35));'
+          if old not in s: raise SystemExit("V69 panel layout source mismatch")
           s=s.replace(old,new,1)
-          old='country.setText(flag(c)+" "+(c==null||c.isEmpty()?"Country not set":c));'
-          new='if(c==null||c.trim().isEmpty()){country.setVisibility(android.view.View.GONE);}else{country.setText(flag(c)+" "+c);country.setVisibility(android.view.View.VISIBLE);}'
-          if old not in s: raise SystemExit("V69 caller country fallback source did not match")
+          old = 'TextView top=label("INCOMING VIDEO CALL",15,Color.rgb(188,158,255));top.setGravity(Gravity.CENTER);panel.addView(top);'
+          new = 'TextView top=label("INCOMING VIDEO CALL",18,Color.WHITE);top.setGravity(Gravity.CENTER);panel.addView(top);'
+          if old not in s: raise SystemExit("V69 incoming title source mismatch")
+          s=s.replace(old,new,1)
+          old = 'ImageView photo=ProfileImages.avatar(this,null,callerName==null?"User":callerName);LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(Ui.dp(this,200),Ui.dp(this,230));pp.setMargins(0,Ui.dp(this,32),0,Ui.dp(this,18));panel.addView(photo,pp);'
+          new = 'ImageView photo=ProfileImages.avatar(this,null,callerName==null?"User":callerName);photo.setScaleType(ImageView.ScaleType.CENTER_CROP);android.graphics.drawable.GradientDrawable avatarBg=new android.graphics.drawable.GradientDrawable();avatarBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);avatarBg.setColor(Color.rgb(45,38,65));photo.setBackground(avatarBg);photo.setClipToOutline(true);LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(Ui.dp(this,124),Ui.dp(this,124));pp.setMargins(0,Ui.dp(this,24),0,Ui.dp(this,18));panel.addView(photo,pp);'
+          if old not in s: raise SystemExit("V69 caller avatar source mismatch")
+          s=s.replace(old,new,1)
+          old = 'TextView info=label(callerName==null?"User":callerName,26,Color.WHITE);info.setGravity(Gravity.CENTER);panel.addView(info);'
+          new = 'TextView info=label(callerName==null?"User":callerName,27,Color.WHITE);info.setGravity(Gravity.CENTER);panel.addView(info);'
+          if old not in s: raise SystemExit("V69 caller name source mismatch")
+          s=s.replace(old,new,1)
+          old = 'TextView country=label("Loading caller details…",16,Color.WHITE);country.setGravity(Gravity.CENTER);panel.addView(country);'
+          new = 'TextView country=label("Loading caller details…",15,Color.LTGRAY);country.setGravity(Gravity.CENTER);panel.addView(country);'
+          if old not in s: raise SystemExit("V69 caller country label source mismatch")
+          s=s.replace(old,new,1)
+          old = 'panel.addView(label("● Incoming call",15,Color.rgb(70,220,130)));'
+          new = 'TextView incoming=label("● Incoming call",14,Color.rgb(70,220,130));incoming.setGravity(Gravity.CENTER);LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(-1,-2);ip.topMargin=Ui.dp(this,8);panel.addView(incoming,ip);'
+          if old not in s: raise SystemExit("V69 incoming status source mismatch")
+          s=s.replace(old,new,1)
+          old = 'LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,Ui.dp(this,75));ap.topMargin=Ui.dp(this,50);panel.addView(actions,ap);'
+          new = 'LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,Ui.dp(this,82));ap.topMargin=Ui.dp(this,30);panel.addView(actions,ap);'
+          if old not in s: raise SystemExit("V69 action row source mismatch")
+          s=s.replace(old,new,1)
+          old = 'Button decline=Ui.secondary(this,"DECLINE");Button accept=Ui.button(this,"ACCEPT");decline.setTextColor(Color.WHITE);accept.setTextColor(Color.WHITE);decline.setTextSize(16);accept.setTextSize(16);decline.setAllCaps(false);accept.setAllCaps(false);actions.addView(decline,new LinearLayout.LayoutParams(0,-1,1));actions.addView(accept,new LinearLayout.LayoutParams(0,-1,1));'
+          new = 'Button decline=Ui.secondary(this,"✕");Button accept=Ui.button(this,"✓");for(Button b:new Button[]{decline,accept}){b.setTextColor(Color.WHITE);b.setTextSize(27);b.setAllCaps(false);b.setIncludeFontPadding(false);b.setPadding(0,0,0,0);b.setContentDescription(b==decline?"Decline call":"Accept call");android.graphics.drawable.GradientDrawable circle=new android.graphics.drawable.GradientDrawable();circle.setShape(android.graphics.drawable.GradientDrawable.OVAL);circle.setColor(b==decline?Color.rgb(65,48,76):Color.rgb(240,35,125));b.setBackground(circle);}LinearLayout.LayoutParams dp=new LinearLayout.LayoutParams(Ui.dp(this,76),Ui.dp(this,76));dp.setMargins(Ui.dp(this,24),0,Ui.dp(this,24),0);actions.addView(decline,dp);LinearLayout.LayoutParams acp=new LinearLayout.LayoutParams(Ui.dp(this,76),Ui.dp(this,76));acp.setMargins(Ui.dp(this,24),0,Ui.dp(this,24),0);actions.addView(accept,acp);'
+          if old not in s: raise SystemExit("V69 accept/decline button source mismatch")
+          s=s.replace(old,new,1)
+          old = 'country.setText(flag(c)+" "+(c==null||c.isEmpty()?"Country not set":c));'
+          new = 'if(c==null||c.trim().isEmpty()){country.setVisibility(android.view.View.GONE);}else{country.setText(flag(c)+" "+c);country.setVisibility(android.view.View.VISIBLE);}'
+          if old not in s: raise SystemExit("V69 caller country fallback source mismatch")
           s=s.replace(old,new,1)
           p.write_text(s)
           version=g.read_text()
@@ -1596,7 +1609,7 @@ jobs:
               raise SystemExit("V69 version markers missing; refusing version bump")
           version=version.replace('versionCode 68','versionCode 69',1).replace('versionName "68.0-webrtc-sdp-sequencing-fix"','versionName "69.0-incoming-call-ui-fix"',1)
           g.write_text(version)
-          print("V69 updates only HomeActivity incoming-call presentation; WebRTC implementation untouched.")
+          print("V69 updated only HomeActivity incoming-call presentation; WebRtcClient.java and RealCallActivity.java untouched.")
           PY
 
       - name: Diagnose and install Android SDK API 36
