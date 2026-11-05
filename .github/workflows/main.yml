@@ -645,7 +645,7 @@ jobs:
           print("V53 version 53, compileSdk 36, targetSdk 36 confirmed.")
           print(f"Created source archive: {out}")
           PY
-          sed -i 's/VideoCallLive-V65-aligned.apk/VideoCallLive-V68-aligned.apk/g; s/VideoCallLive-V68.apk/VideoCallLive-V68.apk/g' .github/workflows/main.yml
+          sed -i 's/VideoCallLive-V65-aligned.apk/VideoCallLive-V69-aligned.apk/g; s/VideoCallLive-V69.apk/VideoCallLive-V69.apk/g' .github/workflows/main.yml
 
       - name: Apply V58 privacy and account-deletion changes
         shell: bash
@@ -783,7 +783,7 @@ jobs:
           gradle = next(root.rglob("app/build.gradle"), None)
           if not src or not gradle:
               raise SystemExit("V58 diagnostic source tree not found")
-          out = Path("/tmp/VideoCallLive-V68-Source-Diagnostics.zip")
+          out = Path("/tmp/VideoCallLive-V69-Source-Diagnostics.zip")
           with ZipFile(out, "w", ZIP_DEFLATED) as z:
               for p in src.rglob("*.java"):
                   z.write(p, p.relative_to(src.parent.parent.parent))
@@ -982,10 +982,10 @@ jobs:
           # Keep artifact names/version labels aligned with V57.
           workflow = Path(".github/workflows/main.yml")
           w = workflow.read_text()
-          w = w.replace("VideoCallLive-V68.apk", "VideoCallLive-V57.apk")
-          w = w.replace("VideoCallLive-V68-aligned.apk", "VideoCallLive-V57-aligned.apk")
-          w = w.replace("VideoCallLive-V68-Play-Store-API36-AAB", "VideoCallLive-V57-Play-Store-API36-AAB")
-          w = w.replace("VideoCallLive-V68-Play-Store-AAB", "VideoCallLive-V57-Play-Store-AAB")
+          w = w.replace("VideoCallLive-V69.apk", "VideoCallLive-V57.apk")
+          w = w.replace("VideoCallLive-V69-aligned.apk", "VideoCallLive-V57-aligned.apk")
+          w = w.replace("VideoCallLive-V69-Play-Store-API36-AAB", "VideoCallLive-V57-Play-Store-API36-AAB")
+          w = w.replace("VideoCallLive-V69-Play-Store-AAB", "VideoCallLive-V57-Play-Store-AAB")
           workflow.write_text(w)
 
           from zipfile import ZipFile, ZIP_DEFLATED
@@ -1198,13 +1198,13 @@ jobs:
           from zipfile import ZipFile, ZIP_DEFLATED
           java_root = next(root.rglob("app/src/main/java"), None)
           if not java_root: raise SystemExit("Java source root missing")
-          with ZipFile("/tmp/VideoCallLive-V68-Source-Diagnostics.zip","w",ZIP_DEFLATED) as z:
+          with ZipFile("/tmp/VideoCallLive-V69-Source-Diagnostics.zip","w",ZIP_DEFLATED) as z:
             for p in java_root.rglob("*.java"): z.write(p,p.relative_to(java_root.parent.parent.parent))
             z.write(gradle,"app/build.gradle")
           print("V58 app-side unread counts, FCM token registration, and notification receiver patch applied.")
           PY
           # Rename the signed deliverables for this build version.
-          sed -i 's/VideoCallLive-V68/VideoCallLive-V68/g' .github/workflows/main.yml
+          sed -i 's/VideoCallLive-V69/VideoCallLive-V69/g' .github/workflows/main.yml
 
       - name: Apply V60 keep chat composer and keyboard open after sending
         shell: bash
@@ -1447,7 +1447,7 @@ jobs:
           java_root = next(root.rglob("app/src/main/java"), None)
           if java_root is None:
               raise SystemExit("Java source root missing")
-          out = Path("/tmp/VideoCallLive-V68-Source-Diagnostics.zip")
+          out = Path("/tmp/VideoCallLive-V69-Source-Diagnostics.zip")
           with ZipFile(out, "w", ZIP_DEFLATED) as z:
               for f in java_root.rglob("*.java"):
                   z.write(f, f.relative_to(java_root.parent.parent.parent))
@@ -1498,7 +1498,7 @@ jobs:
           java_root = next(root.rglob("app/src/main/java"), None)
           if java_root is None:
               raise SystemExit("Java source root missing")
-          out = Path("/tmp/VideoCallLive-V68-Source-Diagnostics.zip")
+          out = Path("/tmp/VideoCallLive-V69-Source-Diagnostics.zip")
           with ZipFile(out, "w", ZIP_DEFLATED) as z:
               for f in java_root.rglob("*.java"):
                   z.write(f, f.relative_to(java_root.parent.parent.parent))
@@ -1555,6 +1555,50 @@ jobs:
           print("V68: SDP callbacks now wait for setLocalDescription; incoming answer waits for setRemoteDescription; ICE errors are surfaced.")
           PY
 
+      - name: Apply V69 incoming call screen UI fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          p = next(root.rglob("HomeActivity.java"), None)
+          g = next(root.rglob("app/build.gradle"), None)
+          if p is None or g is None:
+              raise SystemExit("HomeActivity.java or app/build.gradle missing")
+          s = p.read_text()
+          old = '''  LinearLayout panel=new LinearLayout(this);panel.setOrientation(1);panel.setGravity(Gravity.CENTER);panel.setPadding(Ui.dp(this,24),Ui.dp(this,65),Ui.dp(this,24),Ui.dp(this,35));panel.setBackgroundColor(Color.rgb(15,13,35));
+          TextView top=label("INCOMING VIDEO CALL",15,Color.rgb(188,158,255));top.setGravity(Gravity.CENTER);panel.addView(top);
+          ImageView photo=ProfileImages.avatar(this,null,callerName==null?"User":callerName);LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(Ui.dp(this,200),Ui.dp(this,230));pp.setMargins(0,Ui.dp(this,32),0,Ui.dp(this,18));panel.addView(photo,pp);
+          TextView info=label(callerName==null?"User":callerName,26,Color.WHITE);info.setGravity(Gravity.CENTER);panel.addView(info);
+          TextView country=label("Loading caller details…",16,Color.WHITE);country.setGravity(Gravity.CENTER);panel.addView(country);
+          panel.addView(label("● Incoming call",15,Color.rgb(70,220,130)));
+          LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,Ui.dp(this,75));ap.topMargin=Ui.dp(this,50);panel.addView(actions,ap);
+          Button decline=Ui.secondary(this,"DECLINE");Button accept=Ui.button(this,"ACCEPT");decline.setTextColor(Color.WHITE);accept.setTextColor(Color.WHITE);decline.setTextSize(16);accept.setTextSize(16);decline.setAllCaps(false);accept.setAllCaps(false);actions.addView(decline,new LinearLayout.LayoutParams(0,-1,1));actions.addView(accept,new LinearLayout.LayoutParams(0,-1,1));'''
+          new = '''  LinearLayout panel=new LinearLayout(this);panel.setOrientation(1);panel.setGravity(Gravity.CENTER);panel.setPadding(Ui.dp(this,24),Ui.dp(this,28),Ui.dp(this,24),Ui.dp(this,28));panel.setBackgroundColor(Color.rgb(15,13,35));
+          TextView top=label("INCOMING VIDEO CALL",18,Color.WHITE);top.setGravity(Gravity.CENTER);panel.addView(top);
+          ImageView photo=ProfileImages.avatar(this,null,callerName==null?"User":callerName);photo.setScaleType(ImageView.ScaleType.CENTER_CROP);android.graphics.drawable.GradientDrawable avatarBg=new android.graphics.drawable.GradientDrawable();avatarBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);avatarBg.setColor(Color.rgb(45,38,65));photo.setBackground(avatarBg);photo.setClipToOutline(true);LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(Ui.dp(this,124),Ui.dp(this,124));pp.setMargins(0,Ui.dp(this,24),0,Ui.dp(this,18));panel.addView(photo,pp);
+          TextView info=label(callerName==null?"User":callerName,27,Color.WHITE);info.setGravity(Gravity.CENTER);panel.addView(info);
+          TextView country=label("Loading caller details…",15,Color.LTGRAY);country.setGravity(Gravity.CENTER);panel.addView(country);
+          TextView incoming=label("● Incoming call",14,Color.rgb(70,220,130));incoming.setGravity(Gravity.CENTER);LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(-1,-2);ip.topMargin=Ui.dp(this,8);panel.addView(incoming,ip);
+          LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-1,Ui.dp(this,82));ap.topMargin=Ui.dp(this,30);panel.addView(actions,ap);
+          Button decline=Ui.secondary(this,"✕");Button accept=Ui.button(this,"✓");for(Button b:new Button[]{decline,accept}){b.setTextColor(Color.WHITE);b.setTextSize(27);b.setAllCaps(false);b.setIncludeFontPadding(false);b.setPadding(0,0,0,0);b.setContentDescription(b==decline?"Decline call":"Accept call");android.graphics.drawable.GradientDrawable circle=new android.graphics.drawable.GradientDrawable();circle.setShape(android.graphics.drawable.GradientDrawable.OVAL);circle.setColor(b==decline?Color.rgb(65,48,76):Color.rgb(240,35,125));b.setBackground(circle);}LinearLayout.LayoutParams dp=new LinearLayout.LayoutParams(Ui.dp(this,76),Ui.dp(this,76));dp.setMargins(Ui.dp(this,24),0,Ui.dp(this,24),0);actions.addView(decline,dp);LinearLayout.LayoutParams acp=new LinearLayout.LayoutParams(Ui.dp(this,76),Ui.dp(this,76));acp.setMargins(Ui.dp(this,24),0,Ui.dp(this,24),0);actions.addView(accept,acp);'''
+          if old not in s:
+              raise SystemExit("V69 incoming call layout source did not match; no changes made")
+          s=s.replace(old,new,1)
+          old='country.setText(flag(c)+" "+(c==null||c.isEmpty()?"Country not set":c));'
+          new='if(c==null||c.trim().isEmpty()){country.setVisibility(android.view.View.GONE);}else{country.setText(flag(c)+" "+c);country.setVisibility(android.view.View.VISIBLE);}'
+          if old not in s: raise SystemExit("V69 caller country fallback source did not match")
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          version=g.read_text()
+          if 'versionCode 68' not in version or 'versionName "68.0-webrtc-sdp-sequencing-fix"' not in version:
+              raise SystemExit("V69 version markers missing; refusing version bump")
+          version=version.replace('versionCode 68','versionCode 69',1).replace('versionName "68.0-webrtc-sdp-sequencing-fix"','versionName "69.0-incoming-call-ui-fix"',1)
+          g.write_text(version)
+          print("V69 updates only HomeActivity incoming-call presentation; WebRTC implementation untouched.")
+          PY
+
       - name: Diagnose and install Android SDK API 36
         shell: bash
         run: |
@@ -1592,7 +1636,7 @@ jobs:
       - name: Upload Android SDK diagnostics
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V68-Android-SDK-Diagnostics
+          name: VideoCallLive-V69-Android-SDK-Diagnostics
           path: /tmp/android-sdk-diagnostics/sdkmanager.txt
           if-no-files-found: error
           retention-days: 7
@@ -1600,8 +1644,8 @@ jobs:
       - name: Upload source diagnostics for code review
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V68-Source-Diagnostics
-          path: /tmp/VideoCallLive-V68-Source-Diagnostics.zip
+          name: VideoCallLive-V69-Source-Diagnostics
+          path: /tmp/VideoCallLive-V69-Source-Diagnostics.zip
           if-no-files-found: error
           retention-days: 7
 
@@ -1652,8 +1696,8 @@ jobs:
           set -euo pipefail
           mkdir -p signed
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V68-aligned.apk
-          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V68.apk             signed/VideoCallLive-V68-aligned.apk
+          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V69-aligned.apk
+          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V69.apk             signed/VideoCallLive-V69-aligned.apk
 
       - name: Sign Android App Bundle
         if: github.event_name != 'pull_request'
@@ -1664,15 +1708,15 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          cp "$UNSIGNED_AAB" signed/VideoCallLive-V68.aab
-          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V68.aab "$KEY_ALIAS"
+          cp "$UNSIGNED_AAB" signed/VideoCallLive-V69.aab
+          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V69.aab "$KEY_ALIAS"
 
       - name: Verify signed Android App Bundle
         if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
-          jarsigner -verify -verbose signed/VideoCallLive-V68.aab > /tmp/aab-verify.txt 2>&1
+          jarsigner -verify -verbose signed/VideoCallLive-V69.aab > /tmp/aab-verify.txt 2>&1
           cat /tmp/aab-verify.txt | tail -30
           if ! grep -qi "jar verified" /tmp/aab-verify.txt; then
             echo "ERROR: jarsigner did not confirm the AAB signature"
@@ -1686,14 +1730,14 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V68.apk
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V69.apk
 
       - name: Upload signed APK
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V68-APK
-          path: signed/VideoCallLive-V68.apk
+          name: VideoCallLive-V69-APK
+          path: signed/VideoCallLive-V69.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -1701,7 +1745,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V68-Play-Store-AAB
-          path: signed/VideoCallLive-V68.aab
+          name: VideoCallLive-V69-Play-Store-AAB
+          path: signed/VideoCallLive-V69.aab
           if-no-files-found: error
           retention-days: 30
