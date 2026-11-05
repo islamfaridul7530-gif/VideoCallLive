@@ -882,7 +882,7 @@ exports.sendFreeOnlineFemaleHi = onCall(
     const online = await db.collection("users")
       .where("gender", "==", "female")
       .where("online", "==", true)
-      .limit(400).get();
+      .limit(200).get();
     const recipients = online.docs.filter(d => d.id !== uid &&
       typeof d.get("lastSeenAt") === "number" && now - d.get("lastSeenAt") < 90000);
     if (!recipients.length) throw new HttpsError("failed-precondition", "No female users are online right now.");
