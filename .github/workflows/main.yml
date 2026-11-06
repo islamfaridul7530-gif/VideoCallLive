@@ -1677,7 +1677,7 @@ jobs:
           g=next(root.rglob("app/build.gradle"),None)
           if not p or not g: raise SystemExit("V71 HomeActivity/build.gradle missing")
           s=p.read_text()
-          pattern=r' void showIncomingCall\\(String id,String caller,String callerName\\)\\{.*?\\n \\}'
+          pattern=r' void showIncomingCall\(String id,String caller,String callerName\)\{.*?\n \}'
           replacement=r""" void showIncomingCall(String id,String caller,String callerName){
             android.media.Ringtone ring=null;
             try{ring=android.media.RingtoneManager.getRingtone(this,android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE));if(ring!=null){if(android.os.Build.VERSION.SDK_INT>=28)ring.setVolume(.30f);ring.play();}}catch(Exception ignored){}
