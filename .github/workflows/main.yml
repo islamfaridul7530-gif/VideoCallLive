@@ -645,7 +645,7 @@ jobs:
           print("V53 version 53, compileSdk 36, targetSdk 36 confirmed.")
           print(f"Created source archive: {out}")
           PY
-          sed -i 's/VideoCallLive-V65-aligned.apk/VideoCallLive-V70-aligned.apk/g; s/VideoCallLive-V70.apk/VideoCallLive-V70.apk/g' .github/workflows/main.yml
+          sed -i 's/VideoCallLive-V65-aligned.apk/VideoCallLive-V71-aligned.apk/g; s/VideoCallLive-V70.apk/VideoCallLive-V70.apk/g' .github/workflows/main.yml
 
       - name: Apply V58 privacy and account-deletion changes
         shell: bash
@@ -1736,6 +1736,83 @@ jobs:
           version=version.replace('versionCode 70','versionCode 71',1).replace('versionName "70.0-welcome-free-hi-ui"','versionName "71.0-fullscreen-incoming-call-ui"',1)
           g.write_text(version)
           print("V71 incoming call UI updated; WebRTC call engine files untouched.")
+          PY
+
+      - name: Apply V71 full-screen incoming call design
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path("extracted")
+          p=next(root.rglob("IncomingCallDialog.java"),None)
+          g=next(root.rglob("app/build.gradle"),None)
+          if p is None or g is None:
+              raise SystemExit("IncomingCallDialog.java or app/build.gradle missing")
+          source=r'''package com.videocallive.app;
+          import android.app.*;
+          import android.content.*;
+          import android.graphics.Color;
+          import android.graphics.Typeface;
+          import android.graphics.drawable.GradientDrawable;
+          import android.view.*;
+          import android.widget.*;
+          import com.google.firebase.firestore.*;
+
+          public class IncomingCallDialog {
+            static Dialog active;
+            static String activeId;
+            static int dp(Activity a,int n){return Ui.dp(a,n);}
+            static GradientDrawable circle(int color){GradientDrawable d=new GradientDrawable();d.setShape(GradientDrawable.OVAL);d.setColor(color);d.setStroke(2,0x55ffffff);return d;}
+            static TextView action(Activity a,String glyph,String desc,int color){
+              TextView v=new TextView(a);v.setText(glyph);v.setTextColor(Color.WHITE);v.setTextSize(29);v.setGravity(Gravity.CENTER);v.setTypeface(Typeface.DEFAULT,Typeface.BOLD);v.setBackground(circle(color));v.setContentDescription(desc);v.setElevation(dp(a,8));return v;
+            }
+            public static void show(Activity a,String id,String caller,String fallback){
+              if(id.equals(activeId)&&active!=null&&active.isShowing())return;
+              FirebaseFirestore db=FirebaseFirestore.getInstance();
+              android.media.Ringtone ring=null;
+              try{ring=android.media.RingtoneManager.getRingtone(a,android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE));if(ring!=null){if(android.os.Build.VERSION.SDK_INT>=28)ring.setVolume(.30f);ring.play();}}catch(Exception ignored){}
+              final android.media.Ringtone tone=ring;
+              Dialog dialog=new Dialog(a);active=dialog;activeId=id;
+              FrameLayout root=new FrameLayout(a);
+              root.setBackgroundColor(0xff100d1d);
+              ImageView bg=new ImageView(a);bg.setScaleType(ImageView.ScaleType.CENTER_CROP);root.addView(bg,new FrameLayout.LayoutParams(-1,-1));
+              View shade=new View(a);shade.setBackgroundColor(0x99090016);root.addView(shade,new FrameLayout.LayoutParams(-1,-1));
+              LinearLayout content=new LinearLayout(a);content.setOrientation(1);content.setGravity(Gravity.CENTER_HORIZONTAL);content.setPadding(dp(a,24),dp(a,30),dp(a,24),dp(a,34));
+              FrameLayout.LayoutParams cp=new FrameLayout.LayoutParams(-1,-1);cp.gravity=Gravity.CENTER;root.addView(content,cp);
+              TextView title=new TextView(a);title.setText("INCOMING VIDEO CALL");title.setTextSize(18);title.setLetterSpacing(.08f);title.setTextColor(Color.WHITE);title.setGravity(Gravity.CENTER);content.addView(title);
+              Space spacerTop=new Space(a);content.addView(spacerTop,new LinearLayout.LayoutParams(1,0,1));
+              ImageView photo=ProfileImages.circleAvatar(a,null,fallback==null?"User":fallback,116);
+              GradientDrawable ringBorder=circle(0x33201830);ringBorder.setStroke(dp(a,3),Color.WHITE);photo.setBackground(ringBorder);photo.setPadding(dp(a,3),dp(a,3),dp(a,3),dp(a,3));
+              LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(dp(a,116),dp(a,116));pp.bottomMargin=dp(a,18);content.addView(photo,pp);
+              TextView name=new TextView(a);name.setText(fallback==null?"User":fallback);name.setTextSize(27);name.setTypeface(Typeface.DEFAULT,Typeface.BOLD);name.setTextColor(Color.WHITE);name.setGravity(Gravity.CENTER);content.addView(name);
+              TextView country=new TextView(a);country.setText("Incoming call");country.setTextSize(15);country.setTextColor(0xffe0d9e8);country.setGravity(Gravity.CENTER);LinearLayout.LayoutParams ctp=new LinearLayout.LayoutParams(-1,-2);ctp.topMargin=dp(a,7);content.addView(country,ctp);
+              Space spacerBottom=new Space(a);content.addView(spacerBottom,new LinearLayout.LayoutParams(1,0,1));
+              LinearLayout row=new LinearLayout(a);row.setGravity(Gravity.CENTER);LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,dp(a,82));rp.bottomMargin=dp(a,12);content.addView(row,rp);
+              TextView decline=action(a,"✕","Decline call",0xffe53950),accept=action(a,"✓","Accept call",0xff16b86a);
+              LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(a,76),dp(a,76));bp.setMargins(dp(a,35),0,dp(a,35),0);row.addView(decline,bp);
+              LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(dp(a,76),dp(a,76));ap.setMargins(dp(a,35),0,dp(a,35),0);row.addView(accept,ap);
+              dialog.setContentView(root);
+              final String[] callerPhoto={null};
+              java.util.function.BiConsumer<String,String> updatePhoto=(ph,n)->{if(ph!=null&&!ph.trim().isEmpty()){callerPhoto[0]=ph;ProfileImages.load(bg,ph,n);ProfileImages.loadCircle(photo,ph,n);}};
+              db.collection("calls").document(id).get().addOnSuccessListener(cd->{if(cd.exists()&&dialog.isShowing()){String n=cd.getString("callerName"),c=cd.getString("callerCountry"),ph=cd.getString("callerPhotoData");if(ph==null||ph.isEmpty())ph=cd.getString("callerPhoto");if(n!=null&&!n.trim().isEmpty())name.setText(n);if(c!=null&&!c.trim().isEmpty())country.setText(c);updatePhoto.accept(ph,name.getText().toString());}});
+              final ListenerRegistration[] watch={null};
+              watch[0]=db.collection("calls").document(id).addSnapshotListener((d,e)->{if(d!=null&&d.exists()&&!"ringing".equals(d.getString("status")))dialog.dismiss();});
+              dialog.setOnDismissListener(d->{if(tone!=null)tone.stop();if(watch[0]!=null)watch[0].remove();if(active==dialog){active=null;activeId=null;}});
+              if(caller!=null)db.collection("users").document(caller).get().addOnSuccessListener(d->{if(d.exists()&&!a.isFinishing()&&dialog.isShowing()){String n=d.getString("displayName"),c=d.getString("country"),ph=d.getString("photoData");if(ph==null||ph.isEmpty())ph=d.getString("photoUrl");if(n!=null&&!n.isEmpty())name.setText(n);country.setText((c==null||c.isEmpty())?"Incoming call":c);updatePhoto.accept(ph,name.getText().toString());}});
+              decline.setOnClickListener(v->{db.collection("calls").document(id).update("status","declined");dialog.dismiss();});
+              accept.setOnClickListener(v->{if(tone!=null)tone.stop();db.collection("calls").document(id).update("status","accepted");dialog.dismiss();a.startActivity(new Intent(a,RealCallActivity.class).putExtra("incoming",true).putExtra("callId",id).putExtra("otherUid",caller).putExtra("name",name.getText().toString()));});
+              dialog.show();if(dialog.getWindow()!=null){dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);dialog.getWindow().setLayout(-1,-1);dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);}
+            }
+          }
+          '''
+          p.write_text(source)
+          version=g.read_text()
+          if 'versionCode 70' not in version or 'versionName "70.0-welcome-free-hi-ui"' not in version:
+              raise SystemExit("Expected V70 version markers missing")
+          version=version.replace('versionCode 70','versionCode 71',1).replace('versionName "70.0-welcome-free-hi-ui"','versionName "71.0-fullscreen-incoming-call"',1)
+          g.write_text(version)
+          print("V71 incoming call UI updated; call signaling and WebRTC files remain untouched.")
           PY
 
       - name: Diagnose and install Android SDK API 36
