@@ -13,6 +13,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -1888,6 +1890,17 @@ jobs:
           path: signed/VideoCallLive-V71.aab
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish V71 APK as GitHub Release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v71
+          name: VideoCallLive V71
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: signed/VideoCallLive-V71.apk
+
 
 # V70 signed APK push build trigger
 
