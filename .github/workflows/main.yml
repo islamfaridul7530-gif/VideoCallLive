@@ -1863,6 +1863,54 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Fix Firebase Follow and Followed tab
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("extracted")
+          profile = next(root.rglob("PublicProfileActivity.java"), None)
+          home = next(root.rglob("HomeActivity.java"), None)
+          if profile is None or home is None:
+              raise SystemExit("Profile/Home source missing; refusing Follow patch")
+
+          ps = profile.read_text()
+          old = 'Button follow=Ui.button(this,"♡ Follow / Unfollow");content.addView(follow);follow.setOnClickListener(v->{if(key.isEmpty())return;DocumentReference ref=db.collection("users").document(key).collection("following").document(id);ref.get().addOnSuccessListener(d->{if(d.exists())ref.delete().addOnSuccessListener(x->Ui.toast(this,"Unfollowed"));else ref.set(Collections.singletonMap("followedAt",System.currentTimeMillis())).addOnSuccessListener(x->Ui.toast(this,"Following"));});});'
+          new = 'Button follow=Ui.button(this,"♡ Follow");content.addView(follow);DocumentReference followRef=key.isEmpty()?null:db.collection("users").document(key).collection("following").document(id);if(followRef!=null)followRef.get().addOnSuccessListener(d->follow.setText(d.exists()?"♥ Following":"♡ Follow")).addOnFailureListener(e->Ui.toast(this,"Could not load follow status: "+e.getMessage()));follow.setEnabled(followRef!=null&&!key.equals(id));follow.setOnClickListener(v->{if(followRef==null||key.equals(id)){Ui.toast(this,"Please sign in to follow users");return;}follow.setEnabled(false);followRef.get().addOnSuccessListener(d->{if(d.exists())followRef.delete().addOnSuccessListener(x->{follow.setText("♡ Follow");Ui.toast(this,"Unfollowed");}).addOnFailureListener(e->Ui.toast(this,"Unfollow failed: "+e.getMessage())).addOnCompleteListener(t->follow.setEnabled(true));else followRef.set(Collections.singletonMap("followedAt",System.currentTimeMillis())).addOnSuccessListener(x->{follow.setText("♥ Following");Ui.toast(this,"Following");}).addOnFailureListener(e->Ui.toast(this,"Follow failed: "+e.getMessage())).addOnCompleteListener(t->follow.setEnabled(true));}).addOnFailureListener(e->{Ui.toast(this,"Follow error: "+e.getMessage());follow.setEnabled(true);});});'
+          if old not in ps:
+              raise SystemExit("Follow button source did not match expected V72 code; refusing patch")
+          profile.write_text(ps.replace(old, new, 1))
+
+          hs = home.read_text()
+          old_fields = 'ListenerRegistration usersReg,callsReg;List<DocumentSnapshot> profiles=new ArrayList<>();'
+          new_fields = 'ListenerRegistration usersReg,callsReg,followingReg;Set<String> followingIds=new HashSet<>();List<DocumentSnapshot> profiles=new ArrayList<>();'
+          if old_fields not in hs:
+              raise SystemExit("HomeActivity listener fields did not match; refusing patch")
+          hs = hs.replace(old_fields, new_fields, 1)
+
+          old_listen = 'usersReg=db.collection("users").addSnapshotListener((q,e)->{if(e!=null){list.removeAllViews();list.addView(Ui.body(this,"Unable to load users: "+e.getMessage()));return;}if(q!=null){profiles=new ArrayList<>(q.getDocuments());render();}});db.collection("users").document(me).addSnapshotListener((d,e)->{'
+          new_listen = 'usersReg=db.collection("users").addSnapshotListener((q,e)->{if(e!=null){list.removeAllViews();list.addView(Ui.body(this,"Unable to load users: "+e.getMessage()));return;}if(q!=null){profiles=new ArrayList<>(q.getDocuments());render();}});followingReg=db.collection("users").document(me).collection("following").addSnapshotListener((q,e)->{if(e!=null){android.util.Log.e("VideoCallLive","Following listener failed",e);return;}followingIds.clear();if(q!=null)for(DocumentSnapshot f:q.getDocuments())followingIds.add(f.getId());render();});db.collection("users").document(me).addSnapshotListener((d,e)->{'
+          if old_listen not in hs:
+              raise SystemExit("HomeActivity listen() source did not match; refusing patch")
+          hs = hs.replace(old_listen, new_listen, 1)
+
+          old_filter = 'if("Followed".equals(tab)&&!getSharedPreferences("vcl",0).getBoolean("follow_uid_"+id,false))continue;'
+          new_filter = 'if("Followed".equals(tab)&&!followingIds.contains(id))continue;'
+          if old_filter not in hs:
+              raise SystemExit("Followed tab filter did not match; refusing patch")
+          hs = hs.replace(old_filter, new_filter, 1)
+
+          old_destroy = 'protected void onDestroy(){if(usersReg!=null)usersReg.remove();if(callsReg!=null)callsReg.remove();super.onDestroy();}'
+          new_destroy = 'protected void onDestroy(){if(usersReg!=null)usersReg.remove();if(callsReg!=null)callsReg.remove();if(followingReg!=null)followingReg.remove();super.onDestroy();}'
+          if old_destroy not in hs:
+              raise SystemExit("HomeActivity onDestroy source did not match; refusing patch")
+          hs = hs.replace(old_destroy, new_destroy, 1)
+          home.write_text(hs)
+          print("Follow now saves/removes Firebase following documents; Followed tab listens to the same collection.")
+          PY
+
       - name: Build release APK
         shell: bash
         run: |
