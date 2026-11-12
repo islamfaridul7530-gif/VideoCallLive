@@ -1890,8 +1890,8 @@ jobs:
               raise SystemExit("HomeActivity listener fields did not match; refusing patch")
           hs = hs.replace(old_fields, new_fields, 1)
 
-          old_listen = 'usersReg=db.collection("users").addSnapshotListener((q,e)->{if(e!=null){list.removeAllViews();list.addView(Ui.body(this,"Unable to load users: "+e.getMessage()));return;}if(q!=null){profiles=new ArrayList<>(q.getDocuments());render();}});db.collection("users").document(me).addSnapshotListener((d,e)->{'
-          new_listen = 'usersReg=db.collection("users").addSnapshotListener((q,e)->{if(e!=null){list.removeAllViews();list.addView(Ui.body(this,"Unable to load users: "+e.getMessage()));return;}if(q!=null){profiles=new ArrayList<>(q.getDocuments());render();}});followingReg=db.collection("users").document(me).collection("following").addSnapshotListener((q,e)->{if(e!=null){android.util.Log.e("VideoCallLive","Following listener failed",e);return;}followingIds.clear();if(q!=null)for(DocumentSnapshot f:q.getDocuments())followingIds.add(f.getId());render();});db.collection("users").document(me).addSnapshotListener((d,e)->{'
+          old_listen = 'db.collection("users").document(me).addSnapshotListener((d,e)->{'
+          new_listen = 'followingReg=db.collection("users").document(me).collection("following").addSnapshotListener((q,e)->{if(e!=null){android.util.Log.e("VideoCallLive","Following listener failed",e);return;}followingIds.clear();if(q!=null)for(DocumentSnapshot f:q.getDocuments())followingIds.add(f.getId());render();});db.collection("users").document(me).addSnapshotListener((d,e)->{'
           if old_listen not in hs:
               raise SystemExit("HomeActivity listen() source did not match; refusing patch")
           hs = hs.replace(old_listen, new_listen, 1)
