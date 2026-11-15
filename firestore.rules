@@ -75,12 +75,22 @@ service cloud.firestore {
       }
 
       match /following/{targetUid} {
-        allow get, list: if isSelf(uid);
+        // A user can read their own following list. Other signed-in users may
+        // only query follow records that point to the target profile.
+        allow get: if isSelf(uid);
+        allow list: if isSelf(uid)
+                    || (signedIn() && resource.data.followedUid == targetUid);
         allow create: if isSelf(uid)
                       && targetUid != uid
-                      && request.resource.data.keys().hasOnly(['followedAt'])
-                      && request.resource.data.followedAt is number;
-        allow update: if false;
+                      && request.resource.data.keys().hasOnly(['followedAt', 'followedUid'])
+                      && request.resource.data.followedAt is number
+                      && request.resource.data.followedUid == targetUid;
+        // Permit only a one-time metadata backfill for existing follow records.
+        allow update: if isSelf(uid)
+                      && resource.data.keys().hasOnly(['followedAt'])
+                      && request.resource.data.keys().hasOnly(['followedAt', 'followedUid'])
+                      && request.resource.data.followedAt == resource.data.followedAt
+                      && request.resource.data.followedUid == targetUid;
         allow delete: if isSelf(uid);
       }
 
