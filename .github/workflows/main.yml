@@ -1939,7 +1939,7 @@ jobs:
           LinearLayout followersBox=new LinearLayout(this);followersBox.setOrientation(LinearLayout.VERTICAL);followersBox.setGravity(android.view.Gravity.CENTER);
           followersValue=new TextView(this);followersValue.setText("0");followersValue.setTextColor(android.graphics.Color.WHITE);followersValue.setTextSize(22);followersValue.setTypeface(null,android.graphics.Typeface.BOLD);followersValue.setGravity(android.view.Gravity.CENTER);
           TextView followersLabel=new TextView(this);followersLabel.setText("Followers");followersLabel.setTextColor(android.graphics.Color.LTGRAY);followersLabel.setTextSize(13);followersLabel.setGravity(android.view.Gravity.CENTER);followersBox.addView(followersValue);followersBox.addView(followersLabel);
-          View statsDivider=new View(this);statsDivider.setBackgroundColor(0xffa72cff);
+          android.view.View statsDivider=new android.view.View(this);statsDivider.setBackgroundColor(0xffa72cff);
           LinearLayout followingBox=new LinearLayout(this);followingBox.setOrientation(LinearLayout.VERTICAL);followingBox.setGravity(android.view.Gravity.CENTER);
           followingValue=new TextView(this);followingValue.setText("0");followingValue.setTextColor(android.graphics.Color.WHITE);followingValue.setTextSize(22);followingValue.setTypeface(null,android.graphics.Typeface.BOLD);followingValue.setGravity(android.view.Gravity.CENTER);
           TextView followingLabel=new TextView(this);followingLabel.setText("Following");followingLabel.setTextColor(android.graphics.Color.LTGRAY);followingLabel.setTextSize(13);followingLabel.setGravity(android.view.Gravity.CENTER);followingBox.addView(followingValue);followingBox.addView(followingLabel);
