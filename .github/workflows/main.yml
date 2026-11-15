@@ -297,8 +297,7 @@ jobs:
           old = '   .addOnSuccessListener(doc->{\n    if(a.isFinishing())return;'
           new = '   .addOnSuccessListener(doc->{\n    if(a.isFinishing())return;\n    android.content.SharedPreferences local=a.getSharedPreferences("vcl",0);\n    String scopedPhotos=local.getString("profile_photos_"+uid,"");\n    String legacyPhotos=local.getString("profile_photos","");\n    boolean staleSharedPhoto=FirebaseAuth.getInstance().getCurrentUser()!=null&&FirebaseAuth.getInstance().getCurrentUser().isAnonymous()&&(scopedPhotos==null||scopedPhotos.isEmpty())&&legacyPhotos!=null&&!legacyPhotos.isEmpty();\n    if(staleSharedPhoto&&doc.exists()&&(doc.getString("photoData")!=null||doc.getString("photoUrl")!=null)){\n      doc.getReference().update("photoData",com.google.firebase.firestore.FieldValue.delete(),"photoUrl",com.google.firebase.firestore.FieldValue.delete()).addOnSuccessListener(v->restoreProfile(a));\n      return;\n    }'
           if old not in s:
-              raise SystemExit("FirebaseHelper profile restore listener did not match")
-          p.write_text(s.replace(old, new, 1))
+              raise SystemExit("FirebaseHelper profile restore listener did not match")          p.write_text(s.replace(old, new, 1))
 
           # Keep local photo lists under the signed-in UID, not one shared key for every account on this phone.
           p = find("PhotoManagerActivity.java")
@@ -597,8 +596,7 @@ jobs:
             });
           }
           void listenChat(){if(callId==null)return;chatReg=db.collection("calls").document(callId).collection("chatMessages").orderBy("createdAt",Query.Direction.ASCENDING).limitToLast(30).addSnapshotListener((q,e)->{if(closed)return;if(e!=null){runOnUiThread(()->status.setText("Call chat unavailable: "+e.getMessage()));return;}if(q==null)return;chatLines.removeAllViews();for(DocumentSnapshot d:q.getDocuments()){String msg=d.getString("text");if(msg==null)continue;boolean own=me.equals(d.getString("senderId"));Long ts=d.getLong("createdAt");TextView line=new TextView(this);line.setText((own?"You":otherName)+"   "+new java.text.SimpleDateFormat("h:mm a",java.util.Locale.getDefault()).format(new java.util.Date(ts==null?System.currentTimeMillis():ts))+"\\n"+msg);line.setTextSize(15);line.setLineSpacing(dp(2),1f);line.setTextColor(Color.WHITE);line.setShadowLayer(3,1,1,Color.BLACK);line.setPadding(dp(4),dp(3),dp(4),dp(3));LinearLayout message=new LinearLayout(this);message.setGravity(Gravity.TOP);ImageView avatar=ProfileImages.circleAvatar(this,own?myPhotoUrl:otherPhotoUrl,own?"You":otherName,32);message.addView(avatar,new LinearLayout.LayoutParams(dp(32),dp(32)));message.addView(line,new LinearLayout.LayoutParams(0,-2,1));chatLines.addView(message);}chatScroll.post(()->chatScroll.fullScroll(View.FOCUS_DOWN));});}
-          void sendChat(){if(callId==null||me==null||otherUid==null)return;String msg=chatInput.getText().toString().trim();if(msg.isEmpty())return;Map<String,Object> m=new HashMap<>();m.put("senderId",me);m.put("receiverId",otherUid);m.put("text",msg);m.put("createdAt",System.currentTimeMillis());db.collection("calls").document(callId).collection("chatMessages").add(m).addOnSuccessListener(y->chatInput.setText("")).addOnFailureListener(e->Toast.makeText(this,e.getMessage(),Toast.LENGTH_SHORT).show());}
-          '''
+          void sendChat(){if(callId==null||me==null||otherUid==null)return;String msg=chatInput.getText().toString().trim();if(msg.isEmpty())return;Map<String,Object> m=new HashMap<>();m.put("senderId",me);m.put("receiverId",otherUid);m.put("text",msg);m.put("createdAt",System.currentTimeMillis());db.collection("calls").document(callId).collection("chatMessages").add(m).addOnSuccessListener(y->chatInput.setText("")).addOnFailureListener(e->Toast.makeText(this,e.getMessage(),Toast.LENGTH_SHORT).show());}          '''
           s=s[:a]+methods+s[b:]
           s=s.replace('if(chatReg!=null)chatReg.remove();','if(chatReg!=null)chatReg.remove();if(callChatParentReg!=null)callChatParentReg.remove();',1)
           p.write_text(s)
@@ -647,7 +645,7 @@ jobs:
           print("V53 version 53, compileSdk 36, targetSdk 36 confirmed.")
           print(f"Created source archive: {out}")
           PY
-          sed -i 's/VideoCallLive-V65-aligned.apk/VideoCallLive-V72-aligned.apk/g; s/VideoCallLive-V71.apk/VideoCallLive-V71.apk/g' .github/workflows/main.yml
+          sed -i 's/VideoCallLive-V65-aligned.apk/VideoCallLive-V72-aligned.apk/g; s/VideoCallLive-V73.apk/VideoCallLive-V73.apk/g' .github/workflows/main.yml
 
       - name: Apply V58 privacy and account-deletion changes
         shell: bash
@@ -785,7 +783,7 @@ jobs:
           gradle = next(root.rglob("app/build.gradle"), None)
           if not src or not gradle:
               raise SystemExit("V58 diagnostic source tree not found")
-          out = Path("/tmp/VideoCallLive-V71-Source-Diagnostics.zip")
+          out = Path("/tmp/VideoCallLive-V73-Source-Diagnostics.zip")
           with ZipFile(out, "w", ZIP_DEFLATED) as z:
               for p in src.rglob("*.java"):
                   z.write(p, p.relative_to(src.parent.parent.parent))
@@ -897,8 +895,7 @@ jobs:
           if gradle is None:
               raise SystemExit("app/build.gradle not found")
           g = gradle.read_text()
-          if 'versionCode 55' not in g or 'versionName "55.0-notification-permission-bootstrap"' not in g:
-              raise SystemExit("Expected V55 version markers not found")
+          if 'versionCode 55' not in g or 'versionName "55.0-notification-permission-bootstrap"' not in g:              raise SystemExit("Expected V55 version markers not found")
           g = g.replace('versionCode 55', 'versionCode 56', 1)
           g = g.replace('versionName "55.0-notification-permission-bootstrap"', 'versionName "56.0-saved-session-startup-notification-fix"', 1)
           gradle.write_text(g)
@@ -984,10 +981,10 @@ jobs:
           # Keep artifact names/version labels aligned with V57.
           workflow = Path(".github/workflows/main.yml")
           w = workflow.read_text()
-          w = w.replace("VideoCallLive-V71.apk", "VideoCallLive-V57.apk")
-          w = w.replace("VideoCallLive-V71-aligned.apk", "VideoCallLive-V57-aligned.apk")
+          w = w.replace("VideoCallLive-V73.apk", "VideoCallLive-V57.apk")
+          w = w.replace("VideoCallLive-V73-aligned.apk", "VideoCallLive-V57-aligned.apk")
           w = w.replace("VideoCallLive-V70-Play-Store-API36-AAB", "VideoCallLive-V57-Play-Store-API36-AAB")
-          w = w.replace("VideoCallLive-V71-Play-Store-AAB", "VideoCallLive-V57-Play-Store-AAB")
+          w = w.replace("VideoCallLive-V73-Play-Store-AAB", "VideoCallLive-V57-Play-Store-AAB")
           workflow.write_text(w)
 
           from zipfile import ZipFile, ZIP_DEFLATED
@@ -1197,10 +1194,9 @@ jobs:
           print("V59: live total unread badge added to bottom Chats navigation item across Home, Chats, Video and Profile screens.")
 
           # Versioned diagnostics from the final Java source.
-          from zipfile import ZipFile, ZIP_DEFLATED
-          java_root = next(root.rglob("app/src/main/java"), None)
+          from zipfile import ZipFile, ZIP_DEFLATED          java_root = next(root.rglob("app/src/main/java"), None)
           if not java_root: raise SystemExit("Java source root missing")
-          with ZipFile("/tmp/VideoCallLive-V71-Source-Diagnostics.zip","w",ZIP_DEFLATED) as z:
+          with ZipFile("/tmp/VideoCallLive-V73-Source-Diagnostics.zip","w",ZIP_DEFLATED) as z:
             for p in java_root.rglob("*.java"): z.write(p,p.relative_to(java_root.parent.parent.parent))
             z.write(gradle,"app/build.gradle")
           print("V58 app-side unread counts, FCM token registration, and notification receiver patch applied.")
@@ -1449,7 +1445,7 @@ jobs:
           java_root = next(root.rglob("app/src/main/java"), None)
           if java_root is None:
               raise SystemExit("Java source root missing")
-          out = Path("/tmp/VideoCallLive-V71-Source-Diagnostics.zip")
+          out = Path("/tmp/VideoCallLive-V73-Source-Diagnostics.zip")
           with ZipFile(out, "w", ZIP_DEFLATED) as z:
               for f in java_root.rglob("*.java"):
                   z.write(f, f.relative_to(java_root.parent.parent.parent))
@@ -1497,10 +1493,9 @@ jobs:
           g = g.replace('versionName "66.0-restore-original-webrtc"', 'versionName "67.0-firestore-call-permission-fix"', 1)
           gradle.write_text(g)
 
-          java_root = next(root.rglob("app/src/main/java"), None)
-          if java_root is None:
+          java_root = next(root.rglob("app/src/main/java"), None)          if java_root is None:
               raise SystemExit("Java source root missing")
-          out = Path("/tmp/VideoCallLive-V71-Source-Diagnostics.zip")
+          out = Path("/tmp/VideoCallLive-V73-Source-Diagnostics.zip")
           with ZipFile(out, "w", ZIP_DEFLATED) as z:
               for f in java_root.rglob("*.java"):
                   z.write(f, f.relative_to(java_root.parent.parent.parent))
@@ -1667,7 +1662,7 @@ jobs:
           print("V70 popup and incoming-call UI source patches applied.")
           PY
 
-      - name: Apply V71 full-screen incoming call redesign
+      - name: Apply V73 full-screen incoming call redesign
         shell: bash
         run: |
           set -euo pipefail
@@ -1677,7 +1672,7 @@ jobs:
           root=Path("extracted")
           p=next(root.rglob("HomeActivity.java"),None)
           g=next(root.rglob("app/build.gradle"),None)
-          if not p or not g: raise SystemExit("V71 HomeActivity/build.gradle missing")
+          if not p or not g: raise SystemExit("V73 HomeActivity/build.gradle missing")
           s=p.read_text()
           pattern=r' void showIncomingCall\(String id,String caller,String callerName\)\{.*?\n \}'
           replacement=r""" void showIncomingCall(String id,String caller,String callerName){
@@ -1734,10 +1729,10 @@ jobs:
           if n!=1: raise SystemExit("Could not safely replace HomeActivity.showIncomingCall")
           p.write_text(s2)
           version=g.read_text()
-          if 'versionCode 70' not in version or 'versionName "70.0-welcome-free-hi-ui"' not in version: raise SystemExit("V71 version markers mismatch")
+          if 'versionCode 70' not in version or 'versionName "70.0-welcome-free-hi-ui"' not in version: raise SystemExit("V73 version markers mismatch")
           version=version.replace('versionCode 70','versionCode 71',1).replace('versionName "70.0-welcome-free-hi-ui"','versionName "71.0-fullscreen-incoming-call-ui"',1)
           g.write_text(version)
-          print("V71 incoming call UI updated; WebRTC call engine files untouched.")
+          print("V73 incoming call UI updated; WebRTC call engine files untouched.")
           PY
 
       - name: Apply V72 fix to the actual incoming-call dialog
@@ -1797,8 +1792,7 @@ jobs:
             java.util.function.BiConsumer<String,String> setPhoto=(url,n)->{if(url!=null&&!url.trim().isEmpty()){ProfileImages.load(photo,url,n);ProfileImages.load(background,url,n);}};
             db.collection("calls").document(id).get().addOnSuccessListener(cd->{if(!cd.exists()||!dialog.isShowing())return;String n=cd.getString("callerName"),c=cd.getString("callerCountry"),ph=cd.getString("callerPhotoData");if(ph==null||ph.isEmpty())ph=cd.getString("callerPhoto");if(n!=null&&!n.trim().isEmpty())name.setText(n);if(c!=null&&!c.trim().isEmpty())country.setText(c);setPhoto.accept(ph,name.getText().toString());});
             if(caller!=null)callerWatch[0]=db.collection("users").document(caller).addSnapshotListener((d,e)->{if(e!=null||!dialog.isShowing()||d==null||!d.exists())return;String n=d.getString("displayName"),c=d.getString("country"),ph=d.getString("photoData");if(ph==null||ph.isEmpty())ph=d.getString("photoUrl");if(n!=null&&!n.trim().isEmpty())name.setText(n);country.setText(c==null||c.trim().isEmpty()?"":c);setPhoto.accept(ph,name.getText().toString());});
-            decline.setOnClickListener(v->{db.collection("calls").document(id).update("status","declined");dialog.dismiss();});
-            accept.setOnClickListener(v->{if(tone!=null)tone.stop();db.collection("calls").document(id).update("status","accepted");dialog.dismiss();a.startActivity(new Intent(a,RealCallActivity.class).putExtra("incoming",true).putExtra("callId",id).putExtra("otherUid",caller).putExtra("name",name.getText().toString()));});
+            decline.setOnClickListener(v->{db.collection("calls").document(id).update("status","declined");dialog.dismiss();});            accept.setOnClickListener(v->{if(tone!=null)tone.stop();db.collection("calls").document(id).update("status","accepted");dialog.dismiss();a.startActivity(new Intent(a,RealCallActivity.class).putExtra("incoming",true).putExtra("callId",id).putExtra("otherUid",caller).putExtra("name",name.getText().toString()));});
             dialog.show();if(dialog.getWindow()!=null){dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);dialog.getWindow().setLayout(-1,-1);}
            }
           }"""
@@ -1807,7 +1801,7 @@ jobs:
           p.write_text(source)
           version=g.read_text()
           if 'versionCode 71' not in version or 'versionName "71.0-fullscreen-incoming-call-ui"' not in version:
-              raise SystemExit("V72 expected V71 version markers not found")
+              raise SystemExit("V72 expected V73 version markers not found")
           version=version.replace('versionCode 71','versionCode 72',1).replace('versionName "71.0-fullscreen-incoming-call-ui"','versionName "72.0-actual-incoming-call-dialog-ui"',1)
           g.write_text(version)
           print("V72 patched IncomingCallDialog.java, the dialog actually invoked by CrashApplication. WebRTC files unchanged.")
@@ -1850,7 +1844,7 @@ jobs:
       - name: Upload Android SDK diagnostics
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V71-Android-SDK-Diagnostics
+          name: VideoCallLive-V73-Android-SDK-Diagnostics
           path: /tmp/android-sdk-diagnostics/sdkmanager.txt
           if-no-files-found: error
           retention-days: 7
@@ -1858,8 +1852,8 @@ jobs:
       - name: Upload source diagnostics for code review
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V71-Source-Diagnostics
-          path: /tmp/VideoCallLive-V71-Source-Diagnostics.zip
+          name: VideoCallLive-V73-Source-Diagnostics
+          path: /tmp/VideoCallLive-V73-Source-Diagnostics.zip
           if-no-files-found: error
           retention-days: 7
 
@@ -1911,6 +1905,80 @@ jobs:
           print("Follow now saves/removes Firebase following documents; Followed tab listens to the same collection.")
           PY
 
+      - name: Add live Followers and Following counts to every profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("extracted")
+          profile = next(root.rglob("PublicProfileActivity.java"), None)
+          home = next(root.rglob("HomeActivity.java"), None)
+          gradle = next(root.rglob("app/build.gradle"), None)
+          if not profile or not home or not gradle:
+              raise SystemExit("Profile, Home, or Gradle source missing; refusing V73 patch")
+
+          ps = profile.read_text()
+          field = "String id,me;FirebaseFirestore db;LinearLayout content;DocumentSnapshot profile;"
+          field_new = "String id,me;FirebaseFirestore db;LinearLayout content;DocumentSnapshot profile;ListenerRegistration followersReg,followingCountReg;TextView followersValue,followingValue;"
+          if field not in ps:
+              raise SystemExit("PublicProfileActivity fields did not match; refusing V73 patch")
+          ps = ps.replace(field, field_new, 1)
+
+          info_anchor = "content.addView(info);"
+          stats = """content.addView(info);
+          // Live public counters: followers are queried by the validated followedUid field;
+          // following is the number of documents in this profile's own following subcollection.
+          LinearLayout stats=new LinearLayout(this);stats.setOrientation(LinearLayout.HORIZONTAL);stats.setGravity(android.view.Gravity.CENTER);
+          android.graphics.drawable.GradientDrawable statsBg=new android.graphics.drawable.GradientDrawable();statsBg.setColor(0x33251a36);statsBg.setCornerRadius(Ui.dp(this,18));statsBg.setStroke(Ui.dp(this,1),0xffa72cff);stats.setBackground(statsBg);stats.setPadding(Ui.dp(this,10),Ui.dp(this,8),Ui.dp(this,10),Ui.dp(this,8));
+          LinearLayout followersBox=new LinearLayout(this);followersBox.setOrientation(LinearLayout.VERTICAL);followersBox.setGravity(android.view.Gravity.CENTER);
+          followersValue=new TextView(this);followersValue.setText("0");followersValue.setTextColor(android.graphics.Color.WHITE);followersValue.setTextSize(22);followersValue.setTypeface(null,android.graphics.Typeface.BOLD);followersValue.setGravity(android.view.Gravity.CENTER);
+          TextView followersLabel=new TextView(this);followersLabel.setText("Followers");followersLabel.setTextColor(android.graphics.Color.LTGRAY);followersLabel.setTextSize(13);followersLabel.setGravity(android.view.Gravity.CENTER);followersBox.addView(followersValue);followersBox.addView(followersLabel);
+          View statsDivider=new View(this);statsDivider.setBackgroundColor(0xffa72cff);
+          LinearLayout followingBox=new LinearLayout(this);followingBox.setOrientation(LinearLayout.VERTICAL);followingBox.setGravity(android.view.Gravity.CENTER);
+          followingValue=new TextView(this);followingValue.setText("0");followingValue.setTextColor(android.graphics.Color.WHITE);followingValue.setTextSize(22);followingValue.setTypeface(null,android.graphics.Typeface.BOLD);followingValue.setGravity(android.view.Gravity.CENTER);
+          TextView followingLabel=new TextView(this);followingLabel.setText("Following");followingLabel.setTextColor(android.graphics.Color.LTGRAY);followingLabel.setTextSize(13);followingLabel.setGravity(android.view.Gravity.CENTER);followingBox.addView(followingValue);followingBox.addView(followingLabel);
+          stats.addView(followersBox,new LinearLayout.LayoutParams(0,-2,1));stats.addView(statsDivider,new LinearLayout.LayoutParams(Ui.dp(this,1),Ui.dp(this,44)));stats.addView(followingBox,new LinearLayout.LayoutParams(0,-2,1));
+          LinearLayout.LayoutParams statsLp=new LinearLayout.LayoutParams(-1,Ui.dp(this,76));statsLp.setMargins(Ui.dp(this,18),Ui.dp(this,12),Ui.dp(this,18),Ui.dp(this,12));content.addView(stats,statsLp);
+          followersReg=db.collectionGroup("following").whereEqualTo("followedUid",id).addSnapshotListener((q,e)->{if(followersValue==null)return;if(e!=null){followersValue.setText("—");android.util.Log.e("VideoCallLive","Followers count listener failed",e);return;}followersValue.setText(String.valueOf(q==null?0:q.size()));});
+          followingCountReg=db.collection("users").document(id).collection("following").addSnapshotListener((q,e)->{if(followingValue==null)return;if(e!=null){followingValue.setText("—");android.util.Log.e("VideoCallLive","Following count listener failed",e);return;}followingValue.setText(String.valueOf(q==null?0:q.size()));});"""
+          if info_anchor not in ps:
+              raise SystemExit("PublicProfileActivity info insertion point missing")
+          ps = ps.replace(info_anchor, stats, 1)
+
+          old_write = 'followRef.set(Collections.singletonMap("followedAt",System.currentTimeMillis()))'
+          new_write = 'followRef.set(new java.util.HashMap<String,Object>(){{put("followedAt",System.currentTimeMillis());put("followedUid",id);}})'
+          if old_write not in ps:
+              raise SystemExit("Follow write source did not match V72 patched code; refusing V73 patch")
+          ps = ps.replace(old_write, new_write, 1)
+
+          old_destroy = "}"
+          destroy_method = """protected void onDestroy(){if(followersReg!=null)followersReg.remove();if(followingCountReg!=null)followingCountReg.remove();super.onDestroy();}
+          """
+          # Insert the lifecycle cleanup immediately before the class's final brace.
+          ps = ps.rstrip()
+          if not ps.endswith("}"):
+              raise SystemExit("PublicProfileActivity class ending not found")
+          ps = ps[:-1] + destroy_method + "}\n"
+          profile.write_text(ps)
+
+          hs = home.read_text()
+          old_listener = 'if(q!=null)for(DocumentSnapshot f:q.getDocuments())followingIds.add(f.getId());render();});'
+          new_listener = 'if(q!=null)for(DocumentSnapshot f:q.getDocuments()){followingIds.add(f.getId());if(!f.contains("followedUid"))f.getReference().update("followedUid",f.getId());}render();});'
+          if old_listener not in hs:
+              raise SystemExit("HomeActivity following listener did not match; refusing V73 migration patch")
+          home.write_text(hs.replace(old_listener,new_listener,1))
+
+          g = gradle.read_text()
+          if 'versionCode 72' not in g:
+              raise SystemExit("Expected V72 versionCode not found; refusing V73 version bump")
+          g = g.replace('versionCode 72','versionCode 73',1)
+          g = g.replace('versionName "72.0-actual-incoming-call-dialog-ui"','versionName "73.0-live-follow-counts"',1)
+          gradle.write_text(g)
+          print("V73: live Followers/Following counts added to all public profiles; existing own follow docs are backfilled with followedUid.")
+          PY
+
       - name: Build release APK
         shell: bash
         run: |
@@ -1958,8 +2026,8 @@ jobs:
           set -euo pipefail
           mkdir -p signed
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V71-aligned.apk
-          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V71.apk             signed/VideoCallLive-V71-aligned.apk
+          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V73-aligned.apk
+          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V73.apk             signed/VideoCallLive-V73-aligned.apk
 
       - name: Sign Android App Bundle
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -1970,15 +2038,15 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          cp "$UNSIGNED_AAB" signed/VideoCallLive-V71.aab
-          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V71.aab "$KEY_ALIAS"
+          cp "$UNSIGNED_AAB" signed/VideoCallLive-V73.aab
+          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V73.aab "$KEY_ALIAS"
 
       - name: Verify signed Android App Bundle
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         run: |
           set -euo pipefail
-          jarsigner -verify -verbose signed/VideoCallLive-V71.aab > /tmp/aab-verify.txt 2>&1
+          jarsigner -verify -verbose signed/VideoCallLive-V73.aab > /tmp/aab-verify.txt 2>&1
           cat /tmp/aab-verify.txt | tail -30
           if ! grep -qi "jar verified" /tmp/aab-verify.txt; then
             echo "ERROR: jarsigner did not confirm the AAB signature"
@@ -1992,14 +2060,14 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V71.apk
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V73.apk
 
       - name: Upload signed APK
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V71-APK
-          path: signed/VideoCallLive-V71.apk
+          name: VideoCallLive-V73-APK
+          path: signed/VideoCallLive-V73.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -2007,24 +2075,24 @@ jobs:
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V71-Play-Store-AAB
-          path: signed/VideoCallLive-V71.aab
+          name: VideoCallLive-V73-Play-Store-AAB
+          path: signed/VideoCallLive-V73.aab
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish V71 APK as GitHub Release
+      - name: Publish V73 APK as GitHub Release
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v71
-          name: VideoCallLive V71
+          tag_name: v73
+          name: VideoCallLive V73
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
-          files: signed/VideoCallLive-V71.apk
+          files: signed/VideoCallLive-V73.apk
 
 
 # V70 signed APK push build trigger
 
-# V71 build trigger
+# V73 build trigger
 
-# V71 rebuild after duplicate version bump removal
+# V73 rebuild after duplicate version bump removal
