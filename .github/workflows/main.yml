@@ -1911,77 +1911,77 @@ jobs:
 
       - name: Add live Followers and Following counts to every profile
         shell: bash
-        run: |2
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
+        run: |
+            set -euo pipefail
+            python3 - <<'PY'
+            from pathlib import Path
 
-          root = Path("extracted")
-          profile = next(root.rglob("PublicProfileActivity.java"), None)
-          home = next(root.rglob("HomeActivity.java"), None)
-          gradle = next(root.rglob("app/build.gradle"), None)
-          if not profile or not home or not gradle:
-              raise SystemExit("Profile, Home, or Gradle source missing; refusing V73 patch")
+            root = Path("extracted")
+            profile = next(root.rglob("PublicProfileActivity.java"), None)
+            home = next(root.rglob("HomeActivity.java"), None)
+            gradle = next(root.rglob("app/build.gradle"), None)
+            if not profile or not home or not gradle:
+                raise SystemExit("Profile, Home, or Gradle source missing; refusing V73 patch")
 
-          ps = profile.read_text()
-          field = "String id,me;FirebaseFirestore db;LinearLayout content;DocumentSnapshot profile;"
-          field_new = "String id,me;FirebaseFirestore db;LinearLayout content;DocumentSnapshot profile;ListenerRegistration followersReg,followingCountReg;TextView followersValue,followingValue;"
-          if field not in ps:
-              raise SystemExit("PublicProfileActivity fields did not match; refusing V73 patch")
-          ps = ps.replace(field, field_new, 1)
+            ps = profile.read_text()
+            field = "String id,me;FirebaseFirestore db;LinearLayout content;DocumentSnapshot profile;"
+            field_new = "String id,me;FirebaseFirestore db;LinearLayout content;DocumentSnapshot profile;ListenerRegistration followersReg,followingCountReg;TextView followersValue,followingValue;"
+            if field not in ps:
+                raise SystemExit("PublicProfileActivity fields did not match; refusing V73 patch")
+            ps = ps.replace(field, field_new, 1)
 
-          info_anchor = "content.addView(info);"
-          stats = """content.addView(info);
-          // Live public counters: followers are queried by the validated followedUid field;
-          // following is the number of documents in this profile's own following subcollection.
-          LinearLayout stats=new LinearLayout(this);stats.setOrientation(LinearLayout.HORIZONTAL);stats.setGravity(android.view.Gravity.CENTER);
-          android.graphics.drawable.GradientDrawable statsBg=new android.graphics.drawable.GradientDrawable();statsBg.setColor(0x33251a36);statsBg.setCornerRadius(Ui.dp(this,18));statsBg.setStroke(Ui.dp(this,1),0xffa72cff);stats.setBackground(statsBg);stats.setPadding(Ui.dp(this,10),Ui.dp(this,8),Ui.dp(this,10),Ui.dp(this,8));
-          LinearLayout followersBox=new LinearLayout(this);followersBox.setOrientation(LinearLayout.VERTICAL);followersBox.setGravity(android.view.Gravity.CENTER);
-          followersValue=new TextView(this);followersValue.setText("0");followersValue.setTextColor(android.graphics.Color.WHITE);followersValue.setTextSize(22);followersValue.setTypeface(null,android.graphics.Typeface.BOLD);followersValue.setGravity(android.view.Gravity.CENTER);
-          TextView followersLabel=new TextView(this);followersLabel.setText("Followers");followersLabel.setTextColor(android.graphics.Color.LTGRAY);followersLabel.setTextSize(13);followersLabel.setGravity(android.view.Gravity.CENTER);followersBox.addView(followersValue);followersBox.addView(followersLabel);
-          android.view.View statsDivider=new android.view.View(this);statsDivider.setBackgroundColor(0xffa72cff);
-          LinearLayout followingBox=new LinearLayout(this);followingBox.setOrientation(LinearLayout.VERTICAL);followingBox.setGravity(android.view.Gravity.CENTER);
-          followingValue=new TextView(this);followingValue.setText("0");followingValue.setTextColor(android.graphics.Color.WHITE);followingValue.setTextSize(22);followingValue.setTypeface(null,android.graphics.Typeface.BOLD);followingValue.setGravity(android.view.Gravity.CENTER);
-          TextView followingLabel=new TextView(this);followingLabel.setText("Following");followingLabel.setTextColor(android.graphics.Color.LTGRAY);followingLabel.setTextSize(13);followingLabel.setGravity(android.view.Gravity.CENTER);followingBox.addView(followingValue);followingBox.addView(followingLabel);
-          stats.addView(followersBox,new LinearLayout.LayoutParams(0,-2,1));stats.addView(statsDivider,new LinearLayout.LayoutParams(Ui.dp(this,1),Ui.dp(this,44)));stats.addView(followingBox,new LinearLayout.LayoutParams(0,-2,1));
-          LinearLayout.LayoutParams statsLp=new LinearLayout.LayoutParams(-1,Ui.dp(this,76));statsLp.setMargins(Ui.dp(this,18),Ui.dp(this,12),Ui.dp(this,18),Ui.dp(this,12));content.addView(stats,statsLp);
-          followersReg=db.collectionGroup("following").whereEqualTo("followedUid",id).addSnapshotListener((q,e)->{if(followersValue==null)return;if(e!=null){followersValue.setText("—");android.util.Log.e("VideoCallLive","Followers count listener failed",e);return;}followersValue.setText(String.valueOf(q==null?0:q.size()));});
-          followingCountReg=db.collection("users").document(id).collection("following").addSnapshotListener((q,e)->{if(followingValue==null)return;if(e!=null){followingValue.setText("—");android.util.Log.e("VideoCallLive","Following count listener failed",e);return;}followingValue.setText(String.valueOf(q==null?0:q.size()));});"""
-          if info_anchor not in ps:
-              raise SystemExit("PublicProfileActivity info insertion point missing")
-          ps = ps.replace(info_anchor, stats, 1)
+            info_anchor = "content.addView(info);"
+            stats = """content.addView(info);
+            // Live public counters: followers are queried by the validated followedUid field;
+            // following is the number of documents in this profile's own following subcollection.
+            LinearLayout stats=new LinearLayout(this);stats.setOrientation(LinearLayout.HORIZONTAL);stats.setGravity(android.view.Gravity.CENTER);
+            android.graphics.drawable.GradientDrawable statsBg=new android.graphics.drawable.GradientDrawable();statsBg.setColor(0x33251a36);statsBg.setCornerRadius(Ui.dp(this,18));statsBg.setStroke(Ui.dp(this,1),0xffa72cff);stats.setBackground(statsBg);stats.setPadding(Ui.dp(this,10),Ui.dp(this,8),Ui.dp(this,10),Ui.dp(this,8));
+            LinearLayout followersBox=new LinearLayout(this);followersBox.setOrientation(LinearLayout.VERTICAL);followersBox.setGravity(android.view.Gravity.CENTER);
+            followersValue=new TextView(this);followersValue.setText("0");followersValue.setTextColor(android.graphics.Color.WHITE);followersValue.setTextSize(22);followersValue.setTypeface(null,android.graphics.Typeface.BOLD);followersValue.setGravity(android.view.Gravity.CENTER);
+            TextView followersLabel=new TextView(this);followersLabel.setText("Followers");followersLabel.setTextColor(android.graphics.Color.LTGRAY);followersLabel.setTextSize(13);followersLabel.setGravity(android.view.Gravity.CENTER);followersBox.addView(followersValue);followersBox.addView(followersLabel);
+            android.view.View statsDivider=new android.view.View(this);statsDivider.setBackgroundColor(0xffa72cff);
+            LinearLayout followingBox=new LinearLayout(this);followingBox.setOrientation(LinearLayout.VERTICAL);followingBox.setGravity(android.view.Gravity.CENTER);
+            followingValue=new TextView(this);followingValue.setText("0");followingValue.setTextColor(android.graphics.Color.WHITE);followingValue.setTextSize(22);followingValue.setTypeface(null,android.graphics.Typeface.BOLD);followingValue.setGravity(android.view.Gravity.CENTER);
+            TextView followingLabel=new TextView(this);followingLabel.setText("Following");followingLabel.setTextColor(android.graphics.Color.LTGRAY);followingLabel.setTextSize(13);followingLabel.setGravity(android.view.Gravity.CENTER);followingBox.addView(followingValue);followingBox.addView(followingLabel);
+            stats.addView(followersBox,new LinearLayout.LayoutParams(0,-2,1));stats.addView(statsDivider,new LinearLayout.LayoutParams(Ui.dp(this,1),Ui.dp(this,44)));stats.addView(followingBox,new LinearLayout.LayoutParams(0,-2,1));
+            LinearLayout.LayoutParams statsLp=new LinearLayout.LayoutParams(-1,Ui.dp(this,76));statsLp.setMargins(Ui.dp(this,18),Ui.dp(this,12),Ui.dp(this,18),Ui.dp(this,12));content.addView(stats,statsLp);
+            followersReg=db.collectionGroup("following").whereEqualTo("followedUid",id).addSnapshotListener((q,e)->{if(followersValue==null)return;if(e!=null){followersValue.setText("—");android.util.Log.e("VideoCallLive","Followers count listener failed",e);return;}followersValue.setText(String.valueOf(q==null?0:q.size()));});
+            followingCountReg=db.collection("users").document(id).collection("following").addSnapshotListener((q,e)->{if(followingValue==null)return;if(e!=null){followingValue.setText("—");android.util.Log.e("VideoCallLive","Following count listener failed",e);return;}followingValue.setText(String.valueOf(q==null?0:q.size()));});"""
+            if info_anchor not in ps:
+                raise SystemExit("PublicProfileActivity info insertion point missing")
+            ps = ps.replace(info_anchor, stats, 1)
 
-          old_write = 'followRef.set(Collections.singletonMap("followedAt",System.currentTimeMillis()))'
-          new_write = 'followRef.set(new java.util.HashMap<String,Object>(){{put("followedAt",System.currentTimeMillis());put("followedUid",id);}})'
-          if old_write not in ps:
-              raise SystemExit("Follow write source did not match V72 patched code; refusing V73 patch")
-          ps = ps.replace(old_write, new_write, 1)
+            old_write = 'followRef.set(Collections.singletonMap("followedAt",System.currentTimeMillis()))'
+            new_write = 'followRef.set(new java.util.HashMap<String,Object>(){{put("followedAt",System.currentTimeMillis());put("followedUid",id);}})'
+            if old_write not in ps:
+                raise SystemExit("Follow write source did not match V72 patched code; refusing V73 patch")
+            ps = ps.replace(old_write, new_write, 1)
 
-          old_destroy = "}"
-          destroy_method = """protected void onDestroy(){if(followersReg!=null)followersReg.remove();if(followingCountReg!=null)followingCountReg.remove();super.onDestroy();}
-          """
-          # Insert the lifecycle cleanup immediately before the class's final brace.
-          ps = ps.rstrip()
-          if not ps.endswith("}"):
-              raise SystemExit("PublicProfileActivity class ending not found")
-          ps = ps[:-1] + destroy_method + "}\n"
-          profile.write_text(ps)
+            old_destroy = "}"
+            destroy_method = """protected void onDestroy(){if(followersReg!=null)followersReg.remove();if(followingCountReg!=null)followingCountReg.remove();super.onDestroy();}
+            """
+            # Insert the lifecycle cleanup immediately before the class's final brace.
+            ps = ps.rstrip()
+            if not ps.endswith("}"):
+                raise SystemExit("PublicProfileActivity class ending not found")
+            ps = ps[:-1] + destroy_method + "}\n"
+            profile.write_text(ps)
 
-          hs = home.read_text()
-          old_listener = 'if(q!=null)for(DocumentSnapshot f:q.getDocuments())followingIds.add(f.getId());render();});'
-          new_listener = 'if(q!=null)for(DocumentSnapshot f:q.getDocuments()){followingIds.add(f.getId());if(!f.contains("followedUid"))f.getReference().update("followedUid",f.getId());}render();});'
-          if old_listener not in hs:
-              raise SystemExit("HomeActivity following listener did not match; refusing V73 migration patch")
-          home.write_text(hs.replace(old_listener,new_listener,1))
+            hs = home.read_text()
+            old_listener = 'if(q!=null)for(DocumentSnapshot f:q.getDocuments())followingIds.add(f.getId());render();});'
+            new_listener = 'if(q!=null)for(DocumentSnapshot f:q.getDocuments()){followingIds.add(f.getId());if(!f.contains("followedUid"))f.getReference().update("followedUid",f.getId());}render();});'
+            if old_listener not in hs:
+                raise SystemExit("HomeActivity following listener did not match; refusing V73 migration patch")
+            home.write_text(hs.replace(old_listener,new_listener,1))
 
-          g = gradle.read_text()
-          if 'versionCode 72' not in g:
-              raise SystemExit("Expected V72 versionCode not found; refusing V73 version bump")
-          g = g.replace('versionCode 72','versionCode 73',1)
-          g = g.replace('versionName "72.0-actual-incoming-call-dialog-ui"','versionName "73.0-live-follow-counts"',1)
-          gradle.write_text(g)
-          print("V73: live Followers/Following counts added to all public profiles; existing own follow docs are backfilled with followedUid.")
-          PY
+            g = gradle.read_text()
+            if 'versionCode 72' not in g:
+                raise SystemExit("Expected V72 versionCode not found; refusing V73 version bump")
+            g = g.replace('versionCode 72','versionCode 73',1)
+            g = g.replace('versionName "72.0-actual-incoming-call-dialog-ui"','versionName "73.0-live-follow-counts"',1)
+            gradle.write_text(g)
+            print("V73: live Followers/Following counts added to all public profiles; existing own follow docs are backfilled with followedUid.")
+            PY
 
       - name: Fix Following page to use Firebase
         shell: bash
