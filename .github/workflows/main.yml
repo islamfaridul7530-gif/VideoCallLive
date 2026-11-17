@@ -646,7 +646,7 @@ jobs:
           print("V53 version 53, compileSdk 36, targetSdk 36 confirmed.")
           print(f"Created source archive: {out}")
           PY
-          sed -i 's/VideoCallLive-V65-aligned.apk/VideoCallLive-V72-aligned.apk/g; s/VideoCallLive-V73.apk/VideoCallLive-V73.apk/g' .github/workflows/main.yml
+          sed -i 's/VideoCallLive-V65-aligned.apk/VideoCallLive-V72-aligned.apk/g; s/VideoCallLive-V74.apk/VideoCallLive-V74.apk/g' .github/workflows/main.yml
 
       - name: Apply V58 privacy and account-deletion changes
         shell: bash
@@ -983,10 +983,10 @@ jobs:
           # Keep artifact names/version labels aligned with V57.
           workflow = Path(".github/workflows/main.yml")
           w = workflow.read_text()
-          w = w.replace("VideoCallLive-V73.apk", "VideoCallLive-V57.apk")
-          w = w.replace("VideoCallLive-V73-aligned.apk", "VideoCallLive-V57-aligned.apk")
+          w = w.replace("VideoCallLive-V74.apk", "VideoCallLive-V57.apk")
+          w = w.replace("VideoCallLive-V74-aligned.apk", "VideoCallLive-V57-aligned.apk")
           w = w.replace("VideoCallLive-V70-Play-Store-API36-AAB", "VideoCallLive-V57-Play-Store-API36-AAB")
-          w = w.replace("VideoCallLive-V73-Play-Store-AAB", "VideoCallLive-V57-Play-Store-AAB")
+          w = w.replace("VideoCallLive-V74-Play-Store-AAB", "VideoCallLive-V57-Play-Store-AAB")
           workflow.write_text(w)
 
           from zipfile import ZipFile, ZIP_DEFLATED
@@ -1983,6 +1983,93 @@ jobs:
           print("V73: live Followers/Following counts added to all public profiles; existing own follow docs are backfilled with followedUid.")
           PY
 
+      - name: Fix Following page to use Firebase
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = next(Path("extracted").rglob("SimpleProfileOptionActivity.java"), None)
+          if p is None:
+              raise SystemExit("SimpleProfileOptionActivity.java missing; refusing Following page patch")
+          s = p.read_text()
+          old = 'package com.videocalllive.app;\nimport android.app.*;import android.os.*;import android.content.*;import android.widget();'
+          # The original compact source uses this exact import line:
+          old_import = 'import android.app.*;import android.os.*;import android.content.*;import android.widget.*;'
+          if old_import not in s:
+              raise SystemExit("SimpleProfileOptionActivity imports changed; refusing patch")
+          s = s.replace(old_import, old_import + 'import com.google.firebase.auth.FirebaseAuth;import com.google.firebase.firestore.*;', 1)
+          old_class = 'public class SimpleProfileOptionActivity extends Activity{\n public void onCreate(Bundle b)'
+          new_class = 'public class SimpleProfileOptionActivity extends Activity{\n private ListenerRegistration followingReg; private LinearLayout followingList;\n public void onCreate(Bundle b)'
+          if old_class not in s:
+              raise SystemExit("SimpleProfileOptionActivity class header changed; refusing patch")
+          s = s.replace(old_class, new_class, 1)
+          old_branch = ' if(type.equals("Following")){StringBuilder z=new StringBuilder();for(String q:new String[]{"Priya","Anjali","Sara","Neha","Aisha","Maya"})if(p.getBoolean("follow_"+q,false))z.append("♥  ").append(q).append("\\n\\n");r.addView(Ui.body(this,z.length()==0?"No followed profiles yet.":z.toString()));}'
+          new_branch = ''' if(type.equals("Following")){
+          followingList=new LinearLayout(this);followingList.setOrientation(LinearLayout.VERTICAL);r.addView(followingList);
+          String uid=FirebaseAuth.getInstance().getUid();
+          if(uid==null){followingList.addView(Ui.body(this,"Please sign in to see your Following list."));}
+          else {followingList.addView(Ui.body(this,"Loading followed profiles..."));
+            followingReg=FirebaseFirestore.getInstance().collection("users").document(uid).collection("following")
+              .addSnapshotListener((q,e)->{
+                if(isFinishing()||followingList==null)return;
+                followingList.removeAllViews();
+                if(e!=null){followingList.addView(Ui.body(this,"Could not load Following list: "+e.getMessage()));return;}
+                if(q==null||q.isEmpty()){followingList.addView(Ui.body(this,"No followed profiles yet."));return;}
+                for(DocumentSnapshot followDoc:q.getDocuments()){
+                  String targetUid=followDoc.getId();
+                  LinearLayout item=new LinearLayout(this);item.setOrientation(LinearLayout.VERTICAL);
+                  item.setPadding(Ui.dp(this,10),Ui.dp(this,8),Ui.dp(this,10),Ui.dp(this,8));
+                  item.setBackgroundColor(0x33251a36);
+                  TextView name=Ui.body(this,"Loading profile...");
+                  item.addView(name);
+                  LinearLayout actions=new LinearLayout(this);actions.setOrientation(LinearLayout.HORIZONTAL);
+                  Button view=Ui.secondary(this,"View profile");
+                  Button unfollow=Ui.button(this,"Unfollow");
+                  actions.addView(view,new LinearLayout.LayoutParams(0,-2,1));
+                  actions.addView(unfollow,new LinearLayout.LayoutParams(0,-2,1));
+                  item.addView(actions);followingList.addView(item);
+                  FirebaseFirestore.getInstance().collection("users").document(targetUid).get()
+                    .addOnSuccessListener(user->{
+                      if(isFinishing())return;
+                      String display=user.getString("displayName");
+                      if(display==null||display.trim().isEmpty())display=user.getString("username");
+                      if(display==null||display.trim().isEmpty())display="User";
+                      name.setText("♥  "+display);
+                      String profileName=display;
+                      view.setOnClickListener(v->startActivity(new Intent(this,PublicProfileActivity.class).putExtra("otherUid",targetUid)));
+                    })
+                    .addOnFailureListener(err->name.setText("User profile unavailable"));
+                  unfollow.setOnClickListener(v->{
+                    unfollow.setEnabled(false);
+                    followDoc.getReference().delete()
+                      .addOnSuccessListener(x->Ui.toast(this,"Unfollowed"))
+                      .addOnFailureListener(err->{Ui.toast(this,"Unfollow failed: "+err.getMessage());unfollow.setEnabled(true);});
+                  });
+                }
+              });
+          }
+        }'''
+          if old_branch not in s:
+              raise SystemExit("Following placeholder branch did not match; refusing patch")
+          s = s.replace(old_branch, new_branch, 1)
+          ending = ' setContentView(r);}\n}'
+          replacement = ' setContentView(r);}\n @Override protected void onDestroy(){if(followingReg!=null)followingReg.remove();followingList=null;super.onDestroy();}\n}'
+          if ending not in s:
+              raise SystemExit("SimpleProfileOptionActivity lifecycle insertion point missing")
+          s = s.replace(ending, replacement, 1)
+          p.write_text(s)
+          gradle = next(Path("extracted").rglob("app/build.gradle"), None)
+          if gradle is None:
+              raise SystemExit("app/build.gradle missing")
+          g=gradle.read_text()
+          if 'versionCode 73' not in g or 'versionName "73.0-live-follow-counts"' not in g:
+              raise SystemExit("Expected V73 version markers not found")
+          g=g.replace('versionCode 73','versionCode 74',1).replace('versionName "73.0-live-follow-counts"','versionName "74.0-firebase-following-list"',1)
+          gradle.write_text(g)
+          print("V74: Following page now streams Firebase following docs, shows user profiles, and supports Unfollow.")
+          PY
+
       - name: Build release APK
         shell: bash
         run: |
@@ -2030,8 +2117,8 @@ jobs:
           set -euo pipefail
           mkdir -p signed
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V73-aligned.apk
-          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V73.apk             signed/VideoCallLive-V73-aligned.apk
+          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V74-aligned.apk
+          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V74.apk             signed/VideoCallLive-V74-aligned.apk
 
       - name: Sign Android App Bundle
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -2042,15 +2129,15 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          cp "$UNSIGNED_AAB" signed/VideoCallLive-V73.aab
-          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V73.aab "$KEY_ALIAS"
+          cp "$UNSIGNED_AAB" signed/VideoCallLive-V74.aab
+          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V74.aab "$KEY_ALIAS"
 
       - name: Verify signed Android App Bundle
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         run: |
           set -euo pipefail
-          jarsigner -verify -verbose signed/VideoCallLive-V73.aab > /tmp/aab-verify.txt 2>&1
+          jarsigner -verify -verbose signed/VideoCallLive-V74.aab > /tmp/aab-verify.txt 2>&1
           cat /tmp/aab-verify.txt | tail -30
           if ! grep -qi "jar verified" /tmp/aab-verify.txt; then
             echo "ERROR: jarsigner did not confirm the AAB signature"
@@ -2064,14 +2151,14 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V73.apk
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V74.apk
 
       - name: Upload signed APK
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V73-APK
-          path: signed/VideoCallLive-V73.apk
+          name: VideoCallLive-V74-APK
+          path: signed/VideoCallLive-V74.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -2079,8 +2166,8 @@ jobs:
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V73-Play-Store-AAB
-          path: signed/VideoCallLive-V73.aab
+          name: VideoCallLive-V74-Play-Store-AAB
+          path: signed/VideoCallLive-V74.aab
           if-no-files-found: error
           retention-days: 30
 
@@ -2088,11 +2175,11 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v73
-          name: VideoCallLive V73
+          tag_name: v74
+          name: VideoCallLive V74
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
-          files: signed/VideoCallLive-V73.apk
+          files: signed/VideoCallLive-V74.apk
 
 
 # V70 signed APK push build trigger
