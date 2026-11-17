@@ -1980,7 +1980,7 @@ jobs:
                 }
               });
           }
-        }'''
+          }'''
           if old_branch not in s:
               raise SystemExit("Following placeholder branch did not match; refusing patch")
           s = s.replace(old_branch, new_branch, 1)
