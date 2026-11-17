@@ -1911,7 +1911,7 @@ jobs:
 
       - name: Add live Followers and Following counts to every profile
         shell: bash
-        run: |
+        run: |4
             set -euo pipefail
             python3 - <<'PY'
             from pathlib import Path
