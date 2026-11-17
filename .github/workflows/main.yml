@@ -1994,9 +1994,9 @@ jobs:
           if gradle is None:
               raise SystemExit("app/build.gradle missing")
           g=gradle.read_text()
-          if 'versionCode 73' not in g or 'versionName "73.0-live-follow-counts"' not in g:
-              raise SystemExit("Expected V73 version markers not found")
-          g=g.replace('versionCode 73','versionCode 74',1).replace('versionName "73.0-live-follow-counts"','versionName "74.0-firebase-following-list"',1)
+          if 'versionCode 72' not in g or 'versionName "72.0-actual-incoming-call-dialog-ui"' not in g:
+              raise SystemExit("Expected V72 version markers not found")
+          g=g.replace('versionCode 72','versionCode 74',1).replace('versionName "72.0-actual-incoming-call-dialog-ui"','versionName "74.0-firebase-following-list"',1)
           gradle.write_text(g)
           print("V74: Following page now streams Firebase following docs, shows user profiles, and supports Unfollow.")
           PY
