@@ -1927,18 +1927,24 @@ jobs:
           anchor = 'Button follow=Ui.button(this,"♡ Follow");content.addView(follow);'
           if anchor not in s:
               raise SystemExit("V74 Follow button anchor missing; refusing count patch")
-          count_ui = '''LinearLayout counts=new LinearLayout(this);counts.setOrientation(LinearLayout.HORIZONTAL);counts.setPadding(Ui.dp(this,12),Ui.dp(this,14),Ui.dp(this,12),Ui.dp(this,14));counts.setBackgroundColor(0x33251a36);
-          LinearLayout followersBox=new LinearLayout(this);followersBox.setOrientation(LinearLayout.VERTICAL);followersBox.setGravity(android.view.Gravity.CENTER);
-          LinearLayout followingBox=new LinearLayout(this);followingBox.setOrientation(LinearLayout.VERTICAL);followingBox.setGravity(android.view.Gravity.CENTER);
-          TextView followersValue=Ui.title(this,"—");TextView followingValue=Ui.title(this,"—");
-          followersBox.addView(followersValue);followersBox.addView(Ui.body(this,"Followers"));
-          followingBox.addView(followingValue);followingBox.addView(Ui.body(this,"Following"));
-          counts.addView(followersBox,new LinearLayout.LayoutParams(0,-2,1));TextView divider=new TextView(this);divider.setBackgroundColor(0xFF8B36D8);counts.addView(divider,new LinearLayout.LayoutParams(Ui.dp(this,1),Ui.dp(this,48)));counts.addView(followingBox,new LinearLayout.LayoutParams(0,-2,1));content.addView(counts);
+          count_ui = '''LinearLayout counts=new LinearLayout(this);counts.setOrientation(LinearLayout.HORIZONTAL);counts.setGravity(android.view.Gravity.CENTER);counts.setPadding(0,Ui.dp(this,12),0,Ui.dp(this,12));
+          LinearLayout followersBox=new LinearLayout(this);followersBox.setOrientation(LinearLayout.VERTICAL);followersBox.setGravity(android.view.Gravity.CENTER);followersBox.setPadding(Ui.dp(this,8),Ui.dp(this,12),Ui.dp(this,8),Ui.dp(this,12));
+          LinearLayout followingBox=new LinearLayout(this);followingBox.setOrientation(LinearLayout.VERTICAL);followingBox.setGravity(android.view.Gravity.CENTER);followingBox.setPadding(Ui.dp(this,8),Ui.dp(this,12),Ui.dp(this,8),Ui.dp(this,12));
+          android.graphics.drawable.GradientDrawable followersBg=new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,new int[]{0x332B1644,0x553B174B});followersBg.setCornerRadius(Ui.dp(this,20));followersBg.setStroke(Ui.dp(this,1),0xFFE83DCE);followersBox.setBackground(followersBg);
+          android.graphics.drawable.GradientDrawable followingBg=new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,new int[]{0x332B1644,0x553B174B});followingBg.setCornerRadius(Ui.dp(this,20));followingBg.setStroke(Ui.dp(this,1),0xFF9B42F5);followingBox.setBackground(followingBg);
+          TextView followersIcon=Ui.title(this,"●");followersIcon.setTextColor(0xFFFF75DF);TextView followingIcon=Ui.title(this,"●");followingIcon.setTextColor(0xFFC77BFF);
+          TextView followersValue=Ui.title(this,"—");TextView followingValue=Ui.title(this,"—");followersValue.setTextColor(0xFFFFFFFF);followingValue.setTextColor(0xFFFFFFFF);
+          TextView followersLabel=Ui.body(this,"Followers");TextView followingLabel=Ui.body(this,"Following");followersLabel.setTextColor(0xFFE9D8F2);followingLabel.setTextColor(0xFFE9D8F2);
+          followersBox.addView(followersIcon);followersBox.addView(followersValue);followersBox.addView(followersLabel);
+          followingBox.addView(followingIcon);followingBox.addView(followingValue);followingBox.addView(followingLabel);
+          LinearLayout.LayoutParams leftCard=new LinearLayout.LayoutParams(0,-2,1);leftCard.setMargins(0,0,Ui.dp(this,7),0);LinearLayout.LayoutParams rightCard=new LinearLayout.LayoutParams(0,-2,1);rightCard.setMargins(Ui.dp(this,7),0,0,0);counts.addView(followersBox,leftCard);counts.addView(followingBox,rightCard);content.addView(counts);
           if(followersCountReg!=null)followersCountReg.remove();if(followingCountReg!=null)followingCountReg.remove();
           followersCountReg=db.collection("users").document(id).collection("followers").addSnapshotListener((q,e)->{if(e==null&&q!=null)followersValue.setText(String.valueOf(q.size()));else android.util.Log.e("VideoCallLive","Followers count listener failed",e);});
           followingCountReg=db.collection("users").document(id).collection("following").addSnapshotListener((q,e)->{if(e==null&&q!=null)followingValue.setText(String.valueOf(q.size()));else android.util.Log.e("VideoCallLive","Following count listener failed",e);});
           '''
           s = s.replace(anchor, count_ui + anchor, 1)
+          follow_style = '''android.graphics.drawable.GradientDrawable followBg=new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,new int[]{0xFFFF1493,0xFFFF5A73});followBg.setCornerRadius(Ui.dp(this,34));follow.setBackground(followBg);follow.setTextColor(0xFFFFFFFF);follow.setTextSize(18);follow.setTypeface(null,android.graphics.Typeface.BOLD);follow.setPadding(Ui.dp(this,18),Ui.dp(this,14),Ui.dp(this,18),Ui.dp(this,14));follow.setElevation(Ui.dp(this,5));'''
+          s = s.replace(anchor, anchor + follow_style, 1)
           ending = '\n}'
           if not s.rstrip().endswith(ending):
               raise SystemExit("Public profile class ending not found")
