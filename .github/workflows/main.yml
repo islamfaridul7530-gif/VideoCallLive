@@ -1933,7 +1933,7 @@ jobs:
           TextView followersValue=Ui.title(this,"—");TextView followingValue=Ui.title(this,"—");
           followersBox.addView(followersValue);followersBox.addView(Ui.body(this,"Followers"));
           followingBox.addView(followingValue);followingBox.addView(Ui.body(this,"Following"));
-          counts.addView(followersBox,new LinearLayout.LayoutParams(0,-2,1));View divider=new View(this);divider.setBackgroundColor(0xFF8B36D8);counts.addView(divider,new LinearLayout.LayoutParams(Ui.dp(this,1),Ui.dp(this,48)));counts.addView(followingBox,new LinearLayout.LayoutParams(0,-2,1));content.addView(counts);
+          counts.addView(followersBox,new LinearLayout.LayoutParams(0,-2,1));TextView divider=new TextView(this);divider.setBackgroundColor(0xFF8B36D8);counts.addView(divider,new LinearLayout.LayoutParams(Ui.dp(this,1),Ui.dp(this,48)));counts.addView(followingBox,new LinearLayout.LayoutParams(0,-2,1));content.addView(counts);
           if(followersCountReg!=null)followersCountReg.remove();if(followingCountReg!=null)followingCountReg.remove();
           followersCountReg=db.collectionGroup("following").whereEqualTo("followedUid",id).addSnapshotListener((q,e)->{if(e==null&&q!=null)followersValue.setText(String.valueOf(q.size()));else android.util.Log.e("VideoCallLive","Followers count listener failed",e);});
           followingCountReg=db.collection("users").document(id).collection("following").addSnapshotListener((q,e)->{if(e==null&&q!=null)followingValue.setText(String.valueOf(q.size()));else android.util.Log.e("VideoCallLive","Following count listener failed",e);});
