@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - privacy-account-deletion
+      - feature/premium-profile-follow-ui
   pull_request:
     branches:
       - main
