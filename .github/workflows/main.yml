@@ -1626,12 +1626,11 @@ jobs:
           s=home.read_text()
           # Show the welcome dialog on every fresh app opening, after profiles arrive.
           old='if(q!=null){profiles=new ArrayList<>(q.getDocuments());render();}'
-          new='if(q!=null){profiles=new ArrayList<>(q.getDocuments());render();if(!welcomeShown&&"male".equals(gender)){welcomeShown=true;showWelcomePopup();}}'
+          new='if(q!=null){profiles=new ArrayList<>(q.getDocuments());render();if("male".equals(gender)&&!getSharedPreferences("vcl",0).getBoolean("welcome_popup_shown",false)){getSharedPreferences("vcl",0).edit().putBoolean("welcome_popup_shown",true).apply();showWelcomePopup();}}'
           if old not in s: raise SystemExit("V70 profile listener anchor mismatch")
           s=s.replace(old,new,1)
           anchor=' void loadBalance(){'
           method=r"""
-          static boolean welcomeShown=false;
           void showWelcomePopup(){
            if(isFinishing()||isDestroyed())return;
            android.app.Dialog dlg=new android.app.Dialog(this);
