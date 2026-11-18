@@ -94,6 +94,20 @@ service cloud.firestore {
         allow delete: if isSelf(uid);
       }
 
+      // Public follower counts are stored under the profile being followed.
+      // Only the authenticated follower may create or remove their own edge.
+      match /followers/{followerUid} {
+        allow get, list: if signedIn();
+        allow create: if signedIn()
+                      && request.auth.uid == followerUid
+                      && followerUid != uid
+                      && request.resource.data.keys().hasOnly(['followerUid', 'followedAt'])
+                      && request.resource.data.followerUid == followerUid
+                      && request.resource.data.followedAt is number;
+        allow update: if false;
+        allow delete: if signedIn() && request.auth.uid == followerUid;
+      }
+
       match /reportedUsers/{targetUid} {
         allow get, list: if isSelf(uid);
         allow create: if isSelf(uid)
