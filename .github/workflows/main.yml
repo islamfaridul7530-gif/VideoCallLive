@@ -2035,6 +2035,42 @@ jobs:
           print("V77: Following actions write mirrored follower edges; profile counts read own followers/following subcollections.")
           PY
 
+      - name: Inspect actual login screen source for V79 changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("extracted")
+          out = []
+          java_files = sorted(root.rglob("*.java"))
+          out.append("JAVA FILES:")
+          out.extend(str(p) for p in java_files)
+          needles = ("Quick Login", "Phone Number", "Phone Login", "Select Your Country", "Confirm", "countryCode", "CountryCode", "+91", "Login")
+          out.append("\\nLOGIN / COUNTRY MATCHES:")
+          for p in java_files:
+              lines = p.read_text(errors="replace").splitlines()
+              hits = [i for i,line in enumerate(lines) if any(n.lower() in line.lower() for n in needles)]
+              if hits:
+                  out.append(f"\\n===== {p} =====")
+                  shown = set()
+                  for i in hits:
+                      for j in range(max(0,i-5), min(len(lines),i+7)):
+                          if j not in shown:
+                              out.append(f"{j+1}: {lines[j]}")
+                              shown.add(j)
+          Path("login-source-diagnostics.txt").write_text("\\n".join(out))
+          print("Created login-source-diagnostics.txt")
+          PY
+
+      - name: Upload login source diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoCallLive-V79-Login-Source-Diagnostics
+          path: login-source-diagnostics.txt
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Build release APK
         shell: bash
         run: |
