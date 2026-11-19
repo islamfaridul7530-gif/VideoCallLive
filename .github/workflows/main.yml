@@ -2060,14 +2060,24 @@ jobs:
                               out.append(f"{j+1}: {lines[j]}")
                               shown.add(j)
           Path("login-source-diagnostics.txt").write_text("\\n".join(out))
-          print("Created login-source-diagnostics.txt")
+          source_dir = Path("login-source-full")
+          source_dir.mkdir(exist_ok=True)
+          for filename in ("LoginActivity.java", "MainActivity.java", "Ui.java"):
+              matches = list(root.rglob(filename))
+              if not matches:
+                  raise SystemExit(f"{filename} missing; refusing source capture")
+              target = source_dir / filename
+              target.write_bytes(matches[0].read_bytes())
+              print(f"Captured full source: {matches[0]}")
           PY
 
       - name: Upload login source diagnostics
         uses: actions/upload-artifact@v4
         with:
           name: VideoCallLive-V79-Login-Source-Diagnostics
-          path: login-source-diagnostics.txt
+          path: |
+            login-source-diagnostics.txt
+            login-source-full/*.java
           if-no-files-found: error
           retention-days: 7
 
