@@ -570,7 +570,7 @@ jobs:
               raise SystemExit("V51 version marker missing")
           gpath.write_text(g.replace('versionCode 51','versionCode 52',1).replace('versionName "51.0-chat-list-call-read-fix"','versionName "52.0-startup-call-chat-quality-fix"',1))
           p=find("MainActivity.java"); s=p.read_text()
-          pattern=r'String\\[\\] labels=\\{.*?r\\.addView\\(country,new LinearLayout\\.LayoutParams\\(-1,Ui\\.dp\\(this,52\\)\\)\\);'
+          pattern=r'String\[\] labels=\{.*?r\.addView\(country,new LinearLayout\.LayoutParams\(-1,Ui\.dp\(this,52\)\)\);'
           s,n=re.subn(pattern,lambda _:new,s,count=1,flags=re.S)
           if n!=1: raise SystemExit('V80 country picker block not found by structural matcher')
           start=s.find(' int detectCountryIndex(){')
