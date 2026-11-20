@@ -2082,8 +2082,9 @@ jobs:
           verify=Ui.button(this,"Verify OTP");verify.setVisibility(View.GONE);r.addView(verify);
           r.addView(new Space(this),new LinearLayout.LayoutParams(1,0,0.55f));
           send.setOnClickListener(v->sendOtp());verify.setOnClickListener(v->verifyOtp());setContentView(r);'''
-          if old not in s: raise SystemExit("LoginActivity UI block mismatch")
-          s=s.replace(old,new,1)
+          import re
+          s,n=re.subn(r'  LinearLayout r=Ui\\.root\\(this\\);.*?send\\.setOnClickListener\\(v->sendOtp\\(\\)\\);verify\\.setOnClickListener\\(v->verifyOtp\\(\\)\\);setContentView\\(r\\);',lambda _:new,s,count=1,flags=re.S)
+          if n != 1: raise SystemExit("LoginActivity UI block not found by whitespace-tolerant matcher")
           marker=' void stage(String s)'
           method=''' int detectCountryIndex(){
           String iso="";
