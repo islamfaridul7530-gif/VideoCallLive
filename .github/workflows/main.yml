@@ -1197,7 +1197,8 @@ jobs:
 
           # Versioned diagnostics from the final Java source.
           from zipfile import ZipFile, ZIP_DEFLATED
-          java_root = next(root.rglob("app/src/main/java"), None)          if not java_root: raise SystemExit("Java source root missing")
+          java_root = next(root.rglob("app/src/main/java"), None)
+          if not java_root: raise SystemExit("Java source root missing")
           with ZipFile("/tmp/VideoCallLive-V73-Source-Diagnostics.zip","w",ZIP_DEFLATED) as z:
             for p in java_root.rglob("*.java"): z.write(p,p.relative_to(java_root.parent.parent.parent))
             z.write(gradle,"app/build.gradle")
