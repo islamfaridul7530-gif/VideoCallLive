@@ -2083,7 +2083,7 @@ jobs:
           r.addView(new Space(this),new LinearLayout.LayoutParams(1,0,0.55f));
           send.setOnClickListener(v->sendOtp());verify.setOnClickListener(v->verifyOtp());setContentView(r);'''
           import re
-          s,n=re.subn(r'  LinearLayout r=Ui\\.root\\(this\\);.*?send\\.setOnClickListener\\(v->sendOtp\\(\\)\\);verify\\.setOnClickListener\\(v->verifyOtp\\(\\)\\);setContentView\\(r\\);',lambda _:new,s,count=1,flags=re.S)
+          s,n=re.subn(r'  LinearLayout r=Ui\.root\(this\);.*?send\\.setOnClickListener\\(v->sendOtp\\(\\)\\);verify\\.setOnClickListener\\(v->verifyOtp\\(\\)\\);setContentView\\(r\\);',lambda _:new,s,count=1,flags=re.S)
           if n != 1: raise SystemExit("LoginActivity UI block not found by whitespace-tolerant matcher")
           marker=' void stage(String s)'
           method=''' int detectCountryIndex(){
