@@ -2169,8 +2169,8 @@ jobs:
           pat=r'String\[\] labels=\{.*?r\.addView\(country,new LinearLayout\.LayoutParams\(-1,Ui\.dp\(this,52\)\)\);'
           s,n=re.subn(pat,lambda _:new_picker,s,count=1,flags=re.S)
           if n!=1: raise SystemExit("V80 could not replace V79 limited country selector")
-          match=re.search(r'\\bint\\s+detectCountryIndex\\s*\\(\\s*\\)\\s*\\{',s)
-          end=re.search(r'\\bvoid\\s+stage\\s*\\(',s[match.end():]) if match else None
+          match=re.search(r'\bint\s+detectCountryIndex\s*\(\s*\)\s*\{',s)
+          end=re.search(r'\bvoid\s+stage\s*\(',s[match.end():]) if match else None
           if not match or not end: raise SystemExit('V79 country detection method boundaries not found')
           a=match.start();b=match.end()+end.start()
           try{android.telephony.TelephonyManager tm=(android.telephony.TelephonyManager)getSystemService(TELEPHONY_SERVICE);if(tm!=null){iso=tm.getNetworkCountryIso();if(iso==null||iso.isEmpty())iso=tm.getSimCountryIso();}}catch(Throwable ignored){}
