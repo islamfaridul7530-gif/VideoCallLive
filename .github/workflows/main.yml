@@ -2095,9 +2095,9 @@ jobs:
             case "BD":return 1; case "NP":return 2; case "AE":return 3;
             case "SA":return 4; case "US":return 5; case "GB":return 6; default:return 0;
           }
-         }
+          }
 
-         void stage(String s)'''
+          void stage(String s)'''
           if marker not in s: raise SystemExit("LoginActivity stage insertion point missing")
           s=s.replace(marker,method,1)
           oldp='String p=phone.getText().toString().trim();\n   if(!p.startsWith("+")||p.length()<10){Ui.toast(this,"Country code ke saath phone number dalo");return;}'
