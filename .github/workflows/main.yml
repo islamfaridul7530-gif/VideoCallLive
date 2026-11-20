@@ -2173,7 +2173,12 @@ jobs:
           end=re.search(r'\bvoid\s+stage\s*\(',s[match.end():]) if match else None
           if not match or not end: raise SystemExit('V79 country detection method boundaries not found')
           a=match.start();b=match.end()+end.start()
-          try{android.telephony.TelephonyManager tm=(android.telephony.TelephonyManager)getSystemService(TELEPHONY_SERVICE);if(tm!=null){iso=tm.getNetworkCountryIso();if(iso==null||iso.isEmpty())iso=tm.getSimCountryIso();}}catch(Throwable ignored){}
+          method=''' String detectCountryRegion(){
+          String iso="";
+          try{
+            android.telephony.TelephonyManager tm=(android.telephony.TelephonyManager)getSystemService(TELEPHONY_SERVICE);
+            if(tm!=null){iso=tm.getNetworkCountryIso();if(iso==null||iso.isEmpty())iso=tm.getSimCountryIso();}
+          }catch(Throwable ignored){}
           if(iso==null||iso.isEmpty())iso=java.util.Locale.getDefault().getCountry();
           return iso==null||iso.isEmpty()?"IN":iso.toUpperCase(java.util.Locale.ROOT);
           }
