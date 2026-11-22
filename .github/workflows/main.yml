@@ -2325,14 +2325,14 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V79.apk
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V80.apk
 
       - name: Upload signed APK
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@v4
         with:
           name: VideoCallLive-V80-APK
-          path: signed/VideoCallLive-V79.apk
+          path: signed/VideoCallLive-V80.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -2353,7 +2353,7 @@ jobs:
           name: VideoCallLive V80
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
-          files: signed/VideoCallLive-V79.apk
+          files: signed/VideoCallLive-V80.apk
 
 
 # V70 signed APK push build trigger
