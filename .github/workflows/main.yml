@@ -2304,14 +2304,14 @@ jobs:
         run: |
           set -euo pipefail
           cp "$UNSIGNED_AAB" signed/VideoCallLive-V80.aab
-          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V79.aab "$KEY_ALIAS"
+          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V80.aab "$KEY_ALIAS"
 
       - name: Verify signed Android App Bundle
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         run: |
           set -euo pipefail
-          jarsigner -verify -verbose signed/VideoCallLive-V79.aab > /tmp/aab-verify.txt 2>&1
+          jarsigner -verify -verbose signed/VideoCallLive-V80.aab > /tmp/aab-verify.txt 2>&1
           cat /tmp/aab-verify.txt | tail -30
           if ! grep -qi "jar verified" /tmp/aab-verify.txt; then
             echo "ERROR: jarsigner did not confirm the AAB signature"
@@ -2341,7 +2341,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: VideoCallLive-V80-Play-Store-AAB
-          path: signed/VideoCallLive-V79.aab
+          path: signed/VideoCallLive-V80.aab
           if-no-files-found: error
           retention-days: 30
 
