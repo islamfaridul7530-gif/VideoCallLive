@@ -1,4 +1,4 @@
-name: Build V81 Searchable Country Picker and Login Layout
+name: Build V82 Dark Country Search Box
 
 on:
   push:
@@ -784,7 +784,7 @@ jobs:
           gradle = next(root.rglob("app/build.gradle"), None)
           if not src or not gradle:
               raise SystemExit("V58 diagnostic source tree not found")
-          out = Path("/tmp/VideoCallLive-V81-Source-Diagnostics.zip")
+          out = Path("/tmp/VideoCallLive-V82-Source-Diagnostics.zip")
           with ZipFile(out, "w", ZIP_DEFLATED) as z:
               for p in src.rglob("*.java"):
                   z.write(p, p.relative_to(src.parent.parent.parent))
@@ -1199,7 +1199,7 @@ jobs:
           from zipfile import ZipFile, ZIP_DEFLATED
           java_root = next(root.rglob("app/src/main/java"), None)
           if not java_root: raise SystemExit("Java source root missing")
-          with ZipFile("/tmp/VideoCallLive-V81-Source-Diagnostics.zip","w",ZIP_DEFLATED) as z:
+          with ZipFile("/tmp/VideoCallLive-V82-Source-Diagnostics.zip","w",ZIP_DEFLATED) as z:
             for p in java_root.rglob("*.java"): z.write(p,p.relative_to(java_root.parent.parent.parent))
             z.write(gradle,"app/build.gradle")
           print("V58 app-side unread counts, FCM token registration, and notification receiver patch applied.")
@@ -2198,7 +2198,45 @@ jobs:
           print("V81 login layout and searchable full country picker applied")
           PY
 
-      - name: Inspect actual login screen source for V81 changes
+      - name: Apply V82 dark country search box
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path("extracted")
+          login=next(root.rglob("LoginActivity.java"),None)
+          gradle=next(root.rglob("app/build.gradle"),None)
+          if not login or not gradle: raise SystemExit("V82 LoginActivity or Gradle file missing")
+          s=login.read_text()
+          old='''            EditText search=new EditText(this);search.setSingleLine(true);search.setTextColor(android.graphics.Color.BLACK);search.setHintTextColor(android.graphics.Color.DKGRAY);search.setHint("Search country or +code");search.setBackgroundColor(android.graphics.Color.WHITE);panel.addView(search,new LinearLayout.LayoutParams(-1,Ui.dp(this,50)));'''
+          new='''            EditText search=new EditText(this);
+            search.setSingleLine(true);
+            search.setTextColor(android.graphics.Color.WHITE);
+            search.setHintTextColor(android.graphics.Color.rgb(184,174,198));
+            search.setHint("Search country name or code (+91)");
+            android.graphics.drawable.GradientDrawable searchBg=new android.graphics.drawable.GradientDrawable();
+            searchBg.setColor(android.graphics.Color.rgb(36,22,48));
+            searchBg.setCornerRadius(Ui.dp(this,16));
+            searchBg.setStroke(Ui.dp(this,1),android.graphics.Color.rgb(91,69,108));
+            search.setBackground(searchBg);
+            search.setPadding(Ui.dp(this,14),0,Ui.dp(this,14),0);
+            android.graphics.drawable.Drawable searchIcon=getDrawable(android.R.drawable.ic_menu_search);
+            if(searchIcon!=null){searchIcon=searchIcon.mutate();searchIcon.setTint(android.graphics.Color.rgb(184,174,198));search.setCompoundDrawablesWithIntrinsicBounds(searchIcon,null,null,null);search.setCompoundDrawablePadding(Ui.dp(this,10));}
+            LinearLayout.LayoutParams searchLp=new LinearLayout.LayoutParams(-1,Ui.dp(this,54));
+            searchLp.setMargins(Ui.dp(this,6),Ui.dp(this,6),Ui.dp(this,6),Ui.dp(this,10));
+            panel.addView(search,searchLp);'''
+          if old not in s: raise SystemExit("V81 country search field did not match; refusing unsafe V82 patch")
+          s=s.replace(old,new,1)
+          g=gradle.read_text()
+          if 'versionCode 81' not in g or 'versionName "81.0-country-picker-visible-text-fix"' not in g:
+              raise SystemExit("Expected V81 Gradle markers missing")
+          g=g.replace('versionCode 81','versionCode 82',1).replace('versionName "81.0-country-picker-visible-text-fix"','versionName "82.0-dark-country-search-box"',1)
+          login.write_text(s);gradle.write_text(g)
+          print("V82 dark rounded search box with icon and clear hint applied.")
+          PY
+
+      - name: Inspect actual login screen source for V82 changes
         shell: bash
         run: |
           set -euo pipefail
@@ -2349,7 +2387,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v81
+          tag_name: v82
           name: VideoCallLive V81
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
