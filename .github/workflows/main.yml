@@ -2209,8 +2209,9 @@ jobs:
           gradle=next(root.rglob("app/build.gradle"),None)
           if not login or not gradle: raise SystemExit("V82 LoginActivity or Gradle file missing")
           s=login.read_text()
-          old='''            EditText search=new EditText(this);search.setSingleLine(true);search.setTextColor(android.graphics.Color.BLACK);search.setHintTextColor(android.graphics.Color.DKGRAY);search.setHint("Search country or +code");search.setBackgroundColor(android.graphics.Color.WHITE);panel.addView(search,new LinearLayout.LayoutParams(-1,Ui.dp(this,50)));'''
-          new='''            EditText search=new EditText(this);
+          import re
+          pattern=r'EditText search=new EditText\\(this\\);.*?panel\\.addView\\(search,new LinearLayout\\.LayoutParams\\(-1,Ui\\.dp\\(this,50\\)\\)\\);'
+          new='''EditText search=new EditText(this);
             search.setSingleLine(true);
             search.setTextColor(android.graphics.Color.WHITE);
             search.setHintTextColor(android.graphics.Color.rgb(184,174,198));
@@ -2226,8 +2227,9 @@ jobs:
             LinearLayout.LayoutParams searchLp=new LinearLayout.LayoutParams(-1,Ui.dp(this,54));
             searchLp.setMargins(Ui.dp(this,6),Ui.dp(this,6),Ui.dp(this,6),Ui.dp(this,10));
             panel.addView(search,searchLp);'''
-          if old not in s: raise SystemExit("V81 country search field did not match; refusing unsafe V82 patch")
-          s=s.replace(old,new,1)
+          s,n=re.subn(pattern,lambda _:new,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit("Could not safely locate V81 country search EditText; refusing V82 patch")
+          login.write_text(s)
           g=gradle.read_text()
           if 'versionCode 81' not in g or 'versionName "81.0-country-picker-visible-text-fix"' not in g:
               raise SystemExit("Expected V81 Gradle markers missing")
