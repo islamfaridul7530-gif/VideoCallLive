@@ -2210,7 +2210,7 @@ jobs:
           if not login or not gradle: raise SystemExit("V82 LoginActivity or Gradle file missing")
           s=login.read_text()
           import re
-          pattern=r'EditText search=new EditText\\(this\\);.*?panel\\.addView\\(search,new LinearLayout\\.LayoutParams\\(-1,Ui\\.dp\\(this,50\\)\\)\\);'
+          pattern=r'EditText search=new EditText\(this\);.*?panel\.addView\(search,new LinearLayout\.LayoutParams\(-1,Ui\.dp\(this,50\)\)\);'
           new='''EditText search=new EditText(this);
             search.setSingleLine(true);
             search.setTextColor(android.graphics.Color.WHITE);
