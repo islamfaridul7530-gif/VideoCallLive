@@ -1448,7 +1448,7 @@ jobs:
           java_root = next(root.rglob("app/src/main/java"), None)
           if java_root is None:
               raise SystemExit("Java source root missing")
-          out = Path("/tmp/VideoCallLive-V81-Source-Diagnostics.zip")
+          out = Path("/tmp/VideoCallLive-V82-Source-Diagnostics.zip")
           with ZipFile(out, "w", ZIP_DEFLATED) as z:
               for f in java_root.rglob("*.java"):
                   z.write(f, f.relative_to(java_root.parent.parent.parent))
@@ -1499,7 +1499,7 @@ jobs:
           java_root = next(root.rglob("app/src/main/java"), None)
           if java_root is None:
               raise SystemExit("Java source root missing")
-          out = Path("/tmp/VideoCallLive-V81-Source-Diagnostics.zip")
+          out = Path("/tmp/VideoCallLive-V82-Source-Diagnostics.zip")
           with ZipFile(out, "w", ZIP_DEFLATED) as z:
               for f in java_root.rglob("*.java"):
                   z.write(f, f.relative_to(java_root.parent.parent.parent))
@@ -1846,7 +1846,7 @@ jobs:
       - name: Upload Android SDK diagnostics
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V81-Android-SDK-Diagnostics
+          name: VideoCallLive-V82-Android-SDK-Diagnostics
           path: /tmp/android-sdk-diagnostics/sdkmanager.txt
           if-no-files-found: error
           retention-days: 7
@@ -1854,8 +1854,8 @@ jobs:
       - name: Upload source diagnostics for code review
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V81-Source-Diagnostics
-          path: /tmp/VideoCallLive-V81-Source-Diagnostics.zip
+          name: VideoCallLive-V82-Source-Diagnostics
+          path: /tmp/VideoCallLive-V82-Source-Diagnostics.zip
           if-no-files-found: error
           retention-days: 7
 
@@ -2117,7 +2117,7 @@ jobs:
           print("V79 source patch applied: country auto-detection + manual country selector + centered Login form.")
           PY
 
-      - name: Apply V81 full searchable country picker and login layout fix
+      - name: Apply V82 full searchable country picker and login layout fix
         shell: bash
         run: |
           set -euo pipefail
@@ -2128,7 +2128,7 @@ jobs:
           login=next(root.rglob("LoginActivity.java"),None)
           main=next(root.rglob("MainActivity.java"),None)
           gradle=next(root.rglob("app/build.gradle"),None)
-          if not login or not main or not gradle: raise SystemExit("V81 source files missing")
+          if not login or not main or not gradle: raise SystemExit("V82 source files missing")
           s=login.read_text()
           if "Spinner country;" not in s or "detectCountryIndex()" not in s: raise SystemExit("V79 country picker source missing")
           s=s.replace("Spinner country;","Button country;",1)
@@ -2168,7 +2168,7 @@ jobs:
           r.addView(country,new LinearLayout.LayoutParams(-1,Ui.dp(this,52)));'''
           pat=r'String\[\] labels=\{.*?r\.addView\(country,new LinearLayout\.LayoutParams\(-1,Ui\.dp\(this,52\)\)\);'
           s,n=re.subn(pat,lambda _:new_picker,s,count=1,flags=re.S)
-          if n!=1: raise SystemExit("V81 could not replace V79 limited country selector")
+          if n!=1: raise SystemExit("V82 could not replace V79 limited country selector")
           match=re.search(r'\bint\s+detectCountryIndex\s*\(\s*\)\s*\{',s)
           end=re.search(r'\bvoid\s+stage\s*\(',s[match.end():]) if match else None
           if not match or not end: raise SystemExit('V79 country detection method boundaries not found')
@@ -2187,15 +2187,15 @@ jobs:
           s=s[:a]+method+s[b:];login.write_text(s)
           m=main.read_text()
           m=m.replace('new LinearLayout.LayoutParams(1, 0, 0.9f)','new LinearLayout.LayoutParams(1, 0, 0.28f)',1)
-          if 'new LinearLayout.LayoutParams(1, 0, 0.28f)' not in m: raise SystemExit("V81 main login spacer not found")
+          if 'new LinearLayout.LayoutParams(1, 0, 0.28f)' not in m: raise SystemExit("V82 main login spacer not found")
           m=m.replace('LinearLayout r = Ui.root(this);','LinearLayout r = Ui.root(this);\n            getWindow().setStatusBarColor(Ui.BG);\n            getWindow().setNavigationBarColor(Ui.BG);\n            if(android.os.Build.VERSION.SDK_INT>=29)getWindow().getDecorView().setSystemUiVisibility(0);',1)
           main.write_text(m)
           g=gradle.read_text()
-          if 'versionCode 79' not in g or 'versionName "79.0-country-auto-login-layout"' not in g: raise SystemExit("V81 expected V79 Gradle markers missing")
+          if 'versionCode 79' not in g or 'versionName "79.0-country-auto-login-layout"' not in g: raise SystemExit("V82 expected V79 Gradle markers missing")
           g=g.replace('versionCode 79','versionCode 81',1).replace('versionName "79.0-country-auto-login-layout"','versionName "81.0-country-picker-visible-text-fix"',1)
           if 'com.googlecode.libphonenumber:libphonenumber' not in g:g=g.replace('dependencies {',"dependencies {\n    implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.55'",1)
           gradle.write_text(g)
-          print("V81 login layout and searchable full country picker applied")
+          print("V82 login layout and searchable full country picker applied")
           PY
 
       - name: Apply V82 dark country search box
@@ -2228,11 +2228,11 @@ jobs:
             searchLp.setMargins(Ui.dp(this,6),Ui.dp(this,6),Ui.dp(this,6),Ui.dp(this,10));
             panel.addView(search,searchLp);'''
           s,n=re.subn(pattern,lambda _:new,s,count=1,flags=re.S)
-          if n!=1: raise SystemExit("Could not safely locate V81 country search EditText; refusing V82 patch")
+          if n!=1: raise SystemExit("Could not safely locate V82 country search EditText; refusing V82 patch")
           login.write_text(s)
           g=gradle.read_text()
           if 'versionCode 81' not in g or 'versionName "81.0-country-picker-visible-text-fix"' not in g:
-              raise SystemExit("Expected V81 Gradle markers missing")
+              raise SystemExit("Expected V82 Gradle markers missing")
           g=g.replace('versionCode 81','versionCode 82',1).replace('versionName "81.0-country-picker-visible-text-fix"','versionName "82.0-dark-country-search-box"',1)
           login.write_text(s);gradle.write_text(g)
           print("V82 dark rounded search box with icon and clear hint applied.")
@@ -2277,7 +2277,7 @@ jobs:
       - name: Upload login source diagnostics
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V81-Login-Source-Diagnostics
+          name: VideoCallLive-V82-Login-Source-Diagnostics
           path: |
             login-source-diagnostics.txt
             login-source-full/*.java
@@ -2331,8 +2331,8 @@ jobs:
           set -euo pipefail
           mkdir -p signed
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V81-aligned.apk
-          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V81.apk             signed/VideoCallLive-V81-aligned.apk
+          "$BUILD_TOOLS_DIR/zipalign" -f -p 4 "$UNSIGNED_APK" signed/VideoCallLive-V82-aligned.apk
+          "$BUILD_TOOLS_DIR/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore"             --ks-pass "pass:$KEYSTORE_PASSWORD"             --ks-key-alias "$KEY_ALIAS"             --key-pass "pass:$KEY_PASSWORD"             --out signed/VideoCallLive-V82.apk             signed/VideoCallLive-V82-aligned.apk
 
       - name: Sign Android App Bundle
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -2343,15 +2343,15 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          cp "$UNSIGNED_AAB" signed/VideoCallLive-V81.aab
-          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V81.aab "$KEY_ALIAS"
+          cp "$UNSIGNED_AAB" signed/VideoCallLive-V82.aab
+          jarsigner -keystore "$RUNNER_TEMP/release.keystore" -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" signed/VideoCallLive-V82.aab "$KEY_ALIAS"
 
       - name: Verify signed Android App Bundle
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         shell: bash
         run: |
           set -euo pipefail
-          jarsigner -verify -verbose signed/VideoCallLive-V81.aab > /tmp/aab-verify.txt 2>&1
+          jarsigner -verify -verbose signed/VideoCallLive-V82.aab > /tmp/aab-verify.txt 2>&1
           cat /tmp/aab-verify.txt | tail -30
           if ! grep -qi "jar verified" /tmp/aab-verify.txt; then
             echo "ERROR: jarsigner did not confirm the AAB signature"
@@ -2365,14 +2365,14 @@ jobs:
         run: |
           set -euo pipefail
           BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V81.apk
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose signed/VideoCallLive-V82.apk
 
       - name: Upload signed APK
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V81-APK
-          path: signed/VideoCallLive-V81.apk
+          name: VideoCallLive-V82-APK
+          path: signed/VideoCallLive-V82.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -2380,20 +2380,20 @@ jobs:
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@v4
         with:
-          name: VideoCallLive-V81-Play-Store-AAB
-          path: signed/VideoCallLive-V81.aab
+          name: VideoCallLive-V82-Play-Store-AAB
+          path: signed/VideoCallLive-V82.aab
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish V81 APK as GitHub Release
+      - name: Publish V82 APK as GitHub Release
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v82
-          name: VideoCallLive V81
+          name: VideoCallLive V82
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
-          files: signed/VideoCallLive-V81.apk
+          files: signed/VideoCallLive-V82.apk
 
 
 # V70 signed APK push build trigger
